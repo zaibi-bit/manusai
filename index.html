@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SYNAPSE // AI Command Center</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --green:#00ff41; --green-dim:#00b32d; --cyan:#00e5ff; --amber:#ffb000;
+  --red:#ff3131; --bg:#020603; --panel:rgba(0,20,8,.72);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg); color:var(--green);
+  font-family:'JetBrains Mono',monospace;
+  min-height:100vh; overflow-x:hidden;
+}
+::selection{background:var(--green);color:#000}
+/* scanlines + vignette overlays */
+.scanlines{position:fixed;inset:0;pointer-events:none;z-index:60;
+  background:repeating-linear-gradient(0deg,rgba(0,0,0,.22) 0 1px,transparent 1px 3px);}
+.vignette{position:fixed;inset:0;pointer-events:none;z-index:59;
+  background:radial-gradient(ellipse at center,transparent 55%,rgba(0,0,0,.75) 100%);}
+#matrix{position:fixed;inset:0;z-index:0;opacity:.35}
+/* boot screen */
+#boot{position:fixed;inset:0;background:#000;z-index:100;display:flex;
+  align-items:center;justify-content:center;transition:opacity .6s}
+#boot.hidden{opacity:0;pointer-events:none}
+.boot-box{width:min(680px,90vw)}
+.boot-line{font-size:14px;line-height:1.9;color:var(--green);white-space:pre-wrap}
+/* top bar */
+.topbar{position:sticky;top:0;z-index:50;display:flex;justify-content:space-between;
+  align-items:center;padding:12px 20px;background:rgba(0,8,3,.9);
+  border-bottom:1px solid var(--green-dim);backdrop-filter:blur(6px)}
+.brand{font-weight:800;letter-spacing:2px;font-size:18px;color:var(--green);
+  text-shadow:0 0 12px var(--green)}
+.brand .blink{animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.sys{display:flex;gap:18px;font-size:12px;color:var(--green-dim)}
+.sys .dot{display:inline-block;width:8px;height:8px;border-radius:50%;
+  background:var(--green);box-shadow:0 0 8px var(--green);animation:blink 2s steps(1) infinite}
+main{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:30px 20px 80px}
+/* hero */
+.hero{text-align:center;padding:60px 10px 40px}
+.glitch{position:relative;font-size:clamp(40px,8vw,84px);font-weight:800;
+  letter-spacing:6px;color:var(--green);text-shadow:0 0 24px rgba(0,255,65,.6)}
+.glitch::before,.glitch::after{content:attr(data-text);position:absolute;left:0;right:0;top:0;overflow:hidden}
+.glitch::before{color:var(--cyan);z-index:-1;animation:gl1 2.4s infinite linear alternate}
+.glitch::after{color:var(--red);z-index:-2;animation:gl2 3.1s infinite linear alternate}
+@keyframes gl1{0%,86%{transform:none;opacity:.7}88%{transform:translate(-4px,2px);opacity:.9}92%{transform:translate(4px,-2px)}96%,100%{transform:none;opacity:.7}}
+@keyframes gl2{0%,80%{transform:none;opacity:.6}84%{transform:translate(5px,-3px);opacity:.9}90%{transform:translate(-5px,3px)}94%,100%{transform:none;opacity:.6}}
+.subtitle{margin-top:14px;color:var(--green-dim);font-size:15px;min-height:24px}
+.subtitle .caret{display:inline-block;width:10px;height:18px;background:var(--green);
+  vertical-align:-3px;animation:blink .8s steps(1) infinite}
+/* terminal strip */
+.term{border:1px solid var(--green-dim);background:var(--panel);margin:30px 0;
+  box-shadow:0 0 24px rgba(0,255,65,.12),inset 0 0 40px rgba(0,255,65,.04)}
+.term-head{display:flex;gap:8px;padding:8px 12px;border-bottom:1px solid var(--green-dim);
+  font-size:12px;color:var(--green-dim)}
+.term-head span{width:11px;height:11px;border-radius:50%}
+.term-head .r{background:var(--red)}.term-head .y{background:var(--amber)}.term-head .g{background:var(--green)}
+.term-body{padding:16px;font-size:13.5px;line-height:2;min-height:150px}
+.prompt{color:var(--cyan)}
+/* section titles */
+.sec-title{display:flex;align-items:center;gap:12px;margin:56px 0 26px;
+  font-size:20px;font-weight:800;letter-spacing:3px;color:var(--green)}
+.sec-title::after{content:'';flex:1;height:1px;
+  background:linear-gradient(90deg,var(--green-dim),transparent)}
+.sec-num{color:var(--amber)}
+/* AI grid */
+.ai-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px}
+.ai-btn{position:relative;display:flex;flex-direction:column;gap:6px;
+  padding:20px 16px;background:var(--panel);border:1px solid var(--green-dim);
+  color:var(--green);text-decoration:none;overflow:hidden;cursor:pointer;
+  transition:transform .18s,box-shadow .18s}
+.ai-btn .ai-name{font-weight:800;font-size:17px;letter-spacing:1px;z-index:2}
+.ai-btn .ai-tag{font-size:11px;color:var(--green-dim);z-index:2}
+.ai-btn .ai-key{position:absolute;top:8px;right:10px;font-size:10px;color:var(--green-dim);z-index:2}
+/* button animations */
+.ai-btn:hover{transform:translateY(-3px) scale(1.02);
+  box-shadow:0 0 22px rgba(0,255,65,.35);border-color:var(--green)}
+.ai-btn.glitch-btn:hover .ai-name{animation:txt-glitch .3s infinite}
+@keyframes txt-glitch{0%{transform:translate(0);text-shadow:2px 0 var(--cyan),-2px 0 var(--red)}
+  25%{transform:translate(-2px,1px)}50%{transform:translate(2px,-1px);text-shadow:-2px 0 var(--cyan),2px 0 var(--red)}
+  75%{transform:translate(-1px,-1px)}100%{transform:translate(0)}}
+.ai-btn .scan{position:absolute;left:0;right:0;top:-40%;height:40%;
+  background:linear-gradient(180deg,transparent,rgba(0,255,65,.35),transparent);
+  transition:top .5s;z-index:1}
+.ai-btn:hover .scan{top:110%}
+.ai-btn.trace::before{content:'';position:absolute;inset:0;pointer-events:none;opacity:0;
+  background:
+   linear-gradient(var(--green),var(--green)) top left/0% 2px no-repeat,
+   linear-gradient(var(--green),var(--green)) top right/2px 0% no-repeat,
+   linear-gradient(var(--green),var(--green)) bottom right/0% 2px no-repeat,
+   linear-gradient(var(--green),var(--green)) bottom left/2px 0% no-repeat;
+  transition:opacity .2s}
+.ai-btn.trace:hover::before{opacity:1;animation:trace 1s linear infinite}
+@keyframes trace{
+  0%{background-size:0% 2px,2px 0%,0% 2px,2px 0%}
+  25%{background-size:100% 2px,2px 0%,0% 2px,2px 0%}
+  50%{background-size:100% 2px,2px 100%,0% 2px,2px 0%}
+  75%{background-size:100% 2px,2px 100%,100% 2px,2px 0%}
+  100%{background-size:100% 2px,2px 100%,100% 2px,2px 100%}}
+.ai-btn.flicker:hover{animation:flick .5s infinite}
+@keyframes flick{0%,100%{opacity:1}20%{opacity:.6}40%{opacity:1}60%{opacity:.75}80%{opacity:1}}
+.ai-btn.neon{border-color:var(--cyan);color:var(--cyan)}
+.ai-btn.neon .ai-tag,.ai-btn.neon .ai-key{color:rgba(0,229,255,.6)}
+.ai-btn.neon:hover{box-shadow:0 0 26px rgba(0,229,255,.5);border-color:var(--cyan)}
+.ai-btn.amber{border-color:var(--amber);color:var(--amber)}
+.ai-btn.amber .ai-tag,.ai-btn.amber .ai-key{color:rgba(255,176,0,.6)}
+.ai-btn.amber:hover{box-shadow:0 0 26px rgba(255,176,0,.5);border-color:var(--amber)}
+/* notes */
+.notes-panel{border:1px solid var(--green-dim);background:var(--panel);padding:22px;
+  box-shadow:0 0 24px rgba(0,255,65,.1)}
+.notes-form{display:grid;gap:12px;margin-bottom:22px}
+.notes-form input,.notes-form textarea{background:rgba(0,0,0,.55);border:1px solid var(--green-dim);
+  color:var(--green);font-family:inherit;font-size:14px;padding:12px;outline:none;width:100%}
+.notes-form input:focus,.notes-form textarea:focus{border-color:var(--green);
+  box-shadow:0 0 12px rgba(0,255,65,.25)}
+.notes-form textarea{min-height:110px;resize:vertical}
+.btn-row{display:flex;gap:12px;flex-wrap:wrap}
+.hack-btn{background:transparent;border:1px solid var(--green);color:var(--green);
+  font-family:inherit;font-weight:700;letter-spacing:2px;padding:12px 26px;cursor:pointer;
+  position:relative;overflow:hidden;transition:.2s;font-size:13px}
+.hack-btn:hover{background:var(--green);color:#000;box-shadow:0 0 24px rgba(0,255,65,.7);
+  text-shadow:none}
+.hack-btn.danger{border-color:var(--red);color:var(--red)}
+.hack-btn.danger:hover{background:var(--red);color:#000;box-shadow:0 0 24px rgba(255,49,49,.7)}
+.search{margin-bottom:16px}
+.note{background:rgba(0,0,0,.5);border-left:3px solid var(--green);padding:14px 16px;
+  margin-bottom:12px;animation:noteIn .3s ease}
+@keyframes noteIn{from{opacity:0;transform:translateX(-12px)}to{opacity:1;transform:none}}
+.note.amber-n{border-left-color:var(--amber)}
+.note-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px}
+.note-title{font-weight:800;font-size:15px}
+.note-time{font-size:11px;color:var(--green-dim)}
+.note-body{font-size:13.5px;line-height:1.7;color:#c9f5d4;white-space:pre-wrap;word-break:break-word}
+.note-actions{display:flex;gap:10px;margin-top:10px}
+.mini-btn{background:none;border:1px solid var(--green-dim);color:var(--green-dim);
+  font-family:inherit;font-size:11px;padding:5px 12px;cursor:pointer;letter-spacing:1px}
+.mini-btn:hover{border-color:var(--green);color:var(--green)}
+.mini-btn.del:hover{border-color:var(--red);color:var(--red)}
+.empty{color:var(--green-dim);font-size:13px;text-align:center;padding:30px;border:1px dashed var(--green-dim)}
+.count{font-size:12px;color:var(--green-dim);margin-bottom:14px}
+/* footer */
+footer{position:relative;z-index:1;text-align:center;padding:30px;font-size:12px;
+  color:var(--green-dim);border-top:1px solid var(--green-dim);background:rgba(0,8,3,.9)}
+footer .heart{color:var(--red)}
+@media(max-width:600px){.sys .hide-m{display:none}.hero{padding:40px 10px 24px}}
+</style>
+</head>
+<body>
+<div id="boot"><div class="boot-box"><div class="boot-line" id="bootText"></div></div></div>
+<div class="scanlines"></div><div class="vignette"></div>
+<canvas id="matrix"></canvas>
+
+<header class="topbar">
+  <div class="brand">SYNAPSE<span class="blink">_</span></div>
+  <div class="sys">
+    <span class="hide-m">ENCRYPTED</span>
+    <span><span class="dot"></span> ONLINE</span>
+    <span id="clock">--:--:--</span>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <h1 class="glitch" data-text="SYNAPSE">SYNAPSE</h1>
+    <p class="subtitle"><span id="typed"></span><span class="caret"></span></p>
+  </section>
+
+  <div class="term">
+    <div class="term-head"><span class="r"></span><span class="y"></span><span class="g"></span><span style="margin-left:8px">root@synapse:~</span></div>
+    <div class="term-body" id="termBody"></div>
+  </div>
+
+  <h2 class="sec-title"><span class="sec-num">[01]</span> AI ARSENAL</h2>
+  <div class="ai-grid" id="aiGrid"></div>
+
+  <h2 class="sec-title"><span class="sec-num">[02]</span> SECURE NOTES VAULT</h2>
+  <div class="notes-panel">
+    <form class="notes-form" id="noteForm">
+      <input id="noteTitle" placeholder="> note_title.exe — give it a name" maxlength="80" autocomplete="off">
+      <textarea id="noteBody" placeholder="> decrypt your thoughts here..."></textarea>
+      <div class="btn-row">
+        <button type="submit" class="hack-btn" id="saveBtn">[+] SAVE NOTE</button>
+        <button type="button" class="hack-btn" id="exportBtn">[⇩] EXPORT .JSON</button>
+        <button type="button" class="hack-btn danger" id="wipeBtn">[×] WIPE ALL</button>
+      </div>
+    </form>
+    <input class="search notes-form" style="margin-bottom:16px" id="searchBox" placeholder="> search_vault --query" autocomplete="off">
+    <div class="count" id="noteCount"></div>
+    <div id="noteList"></div>
+  </div>
+</main>
+
+<footer>
+  SYNAPSE v1.0 — personal command center · notes stored locally in your browser <span class="heart">·</span> stay curious
+</footer>
+
+<script>
+// ---------- matrix rain ----------
+const cv=document.getElementById('matrix'),cx=cv.getContext('2d');
+let W,H,cols,drops;
+function sizeCv(){W=cv.width=innerWidth;H=cv.height=innerHeight;cols=Math.floor(W/18);drops=Array(cols).fill(0).map(()=>Math.random()*-H/18);}
+sizeCv();addEventListener('resize',sizeCv);
+const chars='アイカツ0123456789ABCDEF$#@%&';
+setInterval(()=>{
+  cx.fillStyle='rgba(2,6,3,.08)';cx.fillRect(0,0,W,H);
+  cx.font='16px monospace';
+  for(let i=0;i<cols;i++){
+    const ch=chars[Math.random()*chars.length|0];
+    cx.fillStyle=Math.random()>.975?'#b6ffd0':'#00ff41';
+    cx.fillText(ch,i*18,drops[i]*18);
+    if(drops[i]*18>H&&Math.random()>.975)drops[i]=0;
+    drops[i]++;
+  }
+},50);
+
+// ---------- boot sequence ----------
+const bootLines=[
+'> initializing SYNAPSE kernel ......... OK',
+'> mounting /dev/ai_arsenal ............ OK',
+'> decrypting notes vault .............. OK',
+'> establishing secure uplink .......... OK',
+'> welcome back, operator.'
+];
+const bootEl=document.getElementById('bootText');
+let bi=0;
+const bootIv=setInterval(()=>{
+  if(bi<bootLines.length){bootEl.textContent+=bootLines[bi]+'\n';bi++;}
+  else{clearInterval(bootIv);setTimeout(()=>document.getElementById('boot').classList.add('hidden'),450);}
+},260);
+
+// ---------- typed subtitle ----------
+const phrases=['every AI you own. one terminal.','your notes. your models. zero clutter.','select your weapon, operator.'];
+let pi=0,ci=0,del=false;
+const typedEl=document.getElementById('typed');
+setInterval(()=>{
+  const p=phrases[pi];
+  typedEl.textContent=p.slice(0,ci);
+  if(!del){ci++;if(ci>p.length){del=true;ci=p.length;setTimeout(()=>{},0);}}
+  else{ci--;if(ci===0){del=false;pi=(pi+1)%phrases.length;}}
+},del?35:65);
+
+// ---------- terminal strip ----------
+const termLines=[
+  ['<span class="prompt">root@synapse</span>:~$ ./launch --all-ai',''],
+  ['› chatgpt ............ <span style="color:#00ff41">READY</span>',''],
+  ['› claude ............. <span style="color:#00ff41">READY</span>',''],
+  ['› gemini ............. <span style="color:#00ff41">READY</span>',''],
+  ['› grok ............... <span style="color:#00ff41">READY</span>',''],
+  ['<span class="prompt">root@synapse</span>:~$ <span id="termCursor">▊</span>','']
+];
+const termBody=document.getElementById('termBody');
+let ti=0;
+const termIv=setInterval(()=>{
+  if(ti<termLines.length){
+    const d=document.createElement('div');d.innerHTML=termLines[ti][0];termBody.appendChild(d);ti++;
+  }else clearInterval(termIv);
+},420);
+
+// ---------- AI buttons ----------
+const AIS=[
+  {n:'ChatGPT',t:'openai · general purpose',u:'https://chatgpt.com',c:'glitch-btn',k:'01'},
+  {n:'Claude',t:'anthropic · deep reasoning',u:'https://claude.ai',c:'trace',k:'02'},
+  {n:'Gemini',t:'google · multimodal',u:'https://gemini.google.com',c:'neon glitch-btn',k:'03'},
+  {n:'Grok',t:'xai · real-time edge',u:'https://grok.com',c:'flicker',k:'04'},
+  {n:'Perplexity',t:'answer engine · cited',u:'https://www.perplexity.ai',c:'trace',k:'05'},
+  {n:'Copilot',t:'microsoft · everyday ai',u:'https://copilot.microsoft.com',c:'neon flicker',k:'06'},
+  {n:'Meta AI',t:'meta · social brain',u:'https://www.meta.ai',c:'glitch-btn',k:'07'},
+  {n:'DeepSeek',t:'open weights · coder',u:'https://chat.deepseek.com',c:'trace flicker',k:'08'},
+  {n:'Le Chat',t:'mistral · european ai',u:'https://chat.mistral.ai',c:'amber glitch-btn',k:'09'},
+  {n:'Qwen',t:'alibaba · multilingual',u:'https://chat.qwen.ai',c:'amber trace',k:'10'},
+  {n:'Poe',t:'multi-model hub',u:'https://poe.com',c:'neon trace',k:'11'},
+  {n:'HuggingChat',t:'open-source playground',u:'https://huggingface.co/chat',c:'flicker trace',k:'12'},
+];
+const grid=document.getElementById('aiGrid');
+AIS.forEach(a=>{
+  const el=document.createElement('a');
+  el.className='ai-btn '+a.c; el.href=a.u; el.target='_blank'; el.rel='noopener';
+  el.innerHTML=`<span class="scan"></span><span class="ai-key">[${a.k}]</span><span class="ai-name">${a.n}</span><span class="ai-tag">${a.t}</span>`;
+  grid.appendChild(el);
+});
+
+// ---------- notes vault (localStorage) ----------
+const LS='synapse_notes_v1';
+const getNotes=()=>{try{return JSON.parse(localStorage.getItem(LS))||[]}catch(e){return[]}};
+const setNotes=n=>localStorage.setItem(LS,JSON.stringify(n));
+let editingId=null;
+const list=document.getElementById('noteList'),count=document.getElementById('noteCount');
+const form=document.getElementById('noteForm'),titleI=document.getElementById('noteTitle'),bodyI=document.getElementById('noteBody');
+const saveBtn=document.getElementById('saveBtn');
+
+function renderNotes(){
+  const q=document.getElementById('searchBox').value.toLowerCase();
+  const notes=getNotes().filter(n=>(n.title+' '+n.body).toLowerCase().includes(q));
+  count.textContent=`> ${getNotes().length} file(s) in vault · showing ${notes.length}`;
+  if(!notes.length){list.innerHTML='<div class="empty">vault empty — write your first note, operator</div>';return;}
+  list.innerHTML='';
+  notes.slice().reverse().forEach(n=>{
+    const d=document.createElement('div');
+    d.className='note'+(n.pinned?' amber-n':'');
+    d.innerHTML=`<div class="note-head"><span class="note-title">${escapeHtml(n.title)||'untitled'}</span>
+      <span class="note-time">${new Date(n.ts).toLocaleString()}</span></div>
+      <div class="note-body">${escapeHtml(n.body)}</div>
+      <div class="note-actions">
+        <button class="mini-btn" data-a="pin">${n.pinned?'UNPIN':'PIN'}</button>
+        <button class="mini-btn" data-a="edit">EDIT</button>
+        <button class="mini-btn del" data-a="del">DELETE</button>
+      </div>`;
+    d.querySelectorAll('.mini-btn').forEach(b=>b.onclick=()=>{
+      const all=getNotes(),x=all.find(v=>v.id===n.id);
+      if(b.dataset.a==='del'&&confirm('permanently delete this note?'))setNotes(all.filter(v=>v.id!==n.id));
+      if(b.dataset.a==='pin'){x.pinned=!x.pinned;setNotes(all);}
+      if(b.dataset.a==='edit'){editingId=n.id;titleI.value=n.title;bodyI.value=n.body;saveBtn.textContent='[↻] UPDATE NOTE';titleI.focus();window.scrollTo({top:form.offsetTop-80,behavior:'smooth'});}
+      renderNotes();
+    });
+    list.appendChild(d);
+  });
+}
+function escapeHtml(s){return (s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+form.onsubmit=e=>{
+  e.preventDefault();
+  const t=titleI.value.trim(),b=bodyI.value.trim();
+  if(!t&&!b)return;
+  const all=getNotes();
+  if(editingId){const x=all.find(v=>v.id===editingId);x.title=t;x.body=b;editingId=null;saveBtn.textContent='[+] SAVE NOTE';}
+  else all.push({id:Date.now(),title:t,body:b,ts:Date.now(),pinned:false});
+  setNotes(all);titleI.value='';bodyI.value='';renderNotes();
+};
+document.getElementById('searchBox').oninput=renderNotes;
+document.getElementById('exportBtn').onclick=()=>{
+  const blob=new Blob([JSON.stringify(getNotes(),null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='synapse-notes.json';a.click();
+};
+document.getElementById('wipeBtn').onclick=()=>{
+  if(confirm('WIPE ENTIRE VAULT? this cannot be undone.')){setNotes([]);renderNotes();}
+};
+renderNotes();
+
+// ---------- clock ----------
+setInterval(()=>{document.getElementById('clock').textContent=new Date().toLocaleTimeString('en-GB');},1000);
+</script>
+</body>
+</html>
