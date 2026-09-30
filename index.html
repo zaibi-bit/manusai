@@ -181,6 +181,10 @@ body.is-admin #addToolBtn{display:inline-block}
   background:rgba(0,0,0,.6);border:1px solid var(--red);color:var(--red);font-family:inherit;
   font-size:10px;padding:3px 8px;cursor:pointer}
 body.is-admin .ai-btn.custom .del-tool{display:block}
+.ai-btn .edit-tool{position:absolute;bottom:8px;left:10px;z-index:3;display:none;
+background:rgba(0,0,0,.6);border:1px solid #00ff41;color:#00ff41;
+width:22px;height:22px;font-size:12px;cursor:pointer;line-height:1}
+body.is-admin .ai-btn.custom .edit-tool{display:block}
 /* per-user vault lock */
 #notes.is-locked #noteForm,#notes.is-locked .note-list,#notes.is-locked .notes-toolbar{display:none}
 .vault-locked{display:none;text-align:center;padding:54px 20px;border:1px dashed var(--green-dim);margin-bottom:26px}
@@ -270,7 +274,7 @@ body.is-admin .ai-btn.custom .del-tool{display:block}
 
 <div class="modal-overlay" id="toolOverlay">
   <div class="modal">
-    <h3>&gt; ADD AI TOOL</h3>
+    <h3 id="toolModalTitle">&gt; ADD AI TOOL</h3>
     <p class="sub">admin only — the new tool appears in your arsenal instantly</p>
     <input id="toolName" placeholder="> tool name (e.g. Midjourney)" maxlength="24">
     <input id="toolUrl" placeholder="> https://..." autocomplete="off">
@@ -393,8 +397,23 @@ function renderArsenal(){
     const key=String(i+1).padStart(2,'0');
     el.innerHTML='<span class="scan"></span><span class="ai-key">['+key+']</span>'+
       '<span class="ai-name">'+escapeHtml(a.n)+'</span><span class="ai-tag">'+escapeHtml(a.t)+'</span>'+
-      (a.custom?'<button class="del-tool" data-id="'+a.id+'">\u00d7</button>':'');
+      (a.custom?'<button class="edit-tool" data-id="'+a.id+'">✎</button><button class="del-tool" data-id="'+a.id+'">×</button>':'');
     grid.appendChild(el);
+  });
+  grid.querySelectorAll('.edit-tool').forEach(b=>b.onclick=e=>{
+    e.preventDefault();e.stopPropagation();
+    if(!isAdmin())return;
+    const t=getTools().find(x=>x.id===+b.dataset.id);
+    if(!t)return;
+    editingToolId=t.id;
+    document.getElementById('toolModalTitle').innerHTML='&gt; EDIT AI TOOL';
+    document.getElementById('toolSave').innerHTML='[↻] UPDATE TOOL';
+    document.getElementById('toolName').value=t.n;
+    document.getElementById('toolUrl').value=t.u;
+    document.getElementById('toolTag').value=t.t;
+    document.getElementById('toolColor').value=t.c||'';
+    document.getElementById('toolErr').textContent='';
+    toolOverlay.classList.add('open');
   });
   grid.querySelectorAll('.del-tool').forEach(b=>b.onclick=e=>{
     e.preventDefault();e.stopPropagation();
@@ -455,9 +474,18 @@ document.getElementById('authGo').onclick=()=>{
   document.getElementById('authPass').value='';
   renderAuth();renderArsenal();
 };
-document.getElementById('addToolBtn').onclick=()=>{if(isAdmin())toolOverlay.classList.add('open');};
-document.getElementById('toolClose').onclick=()=>toolOverlay.classList.remove('open');
-toolOverlay.addEventListener('click',e=>{if(e.target===toolOverlay)toolOverlay.classList.remove('open');});
+document.getElementById('addToolBtn').onclick=()=>{if(isAdmin()){resetToolForm();toolOverlay.classList.add('open');}};
+function resetToolForm(){
+  editingToolId=null;
+  document.getElementById('toolModalTitle').innerHTML='&gt; ADD AI TOOL';
+  document.getElementById('toolSave').innerHTML='[+] DEPLOY TOOL';
+  ['toolName','toolUrl','toolTag'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('toolColor').value='';
+  document.getElementById('toolErr').textContent='';
+}
+document.getElementById('toolClose').onclick=()=>{resetToolForm();toolOverlay.classList.remove('open');};
+toolOverlay.addEventListener('click',e=>{if(e.target===toolOverlay){resetToolForm();toolOverlay.classList.remove('open');}});
+let editingToolId=null;
 document.getElementById('toolSave').onclick=()=>{
   if(!isAdmin())return;
   const n=document.getElementById('toolName').value.trim();
@@ -468,10 +496,14 @@ document.getElementById('toolSave').onclick=()=>{
   if(!n){err.textContent='name your tool';return;}
   if(!/^https?:\/\/.+\..+/.test(u)){err.textContent='enter a valid url (https://...)';return;}
   const tools=getTools();
-  tools.push({id:Date.now(),n,u,t,c,custom:true});
+  if(editingToolId){
+    const x=tools.find(t=>t.id===editingToolId);
+    if(x){x.n=n;x.u=u;x.t=t;x.c=c;}
+  }else{
+    tools.push({id:Date.now(),n,u,t,c,custom:true});
+  }
   setTools(tools);renderArsenal();toolOverlay.classList.remove('open');
-  ['toolName','toolUrl','toolTag'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('toolColor').value='';err.textContent='';
+  resetToolForm();
 };
 
 // ---------- notes vault (localStorage, per-user private) ----------
