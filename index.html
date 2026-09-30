@@ -252,7 +252,7 @@ body.is-admin .ai-btn.custom .del-tool{display:block}
 <div class="modal-overlay" id="authOverlay">
   <div class="modal">
     <h3>&gt; ACCESS TERMINAL</h3>
-    <p class="sub">sign in to sync your operator profile · the first account to sign up becomes admin</p>
+    <p class="sub">sign in to unlock your private notes vault</p>
     <div class="tab-row">
       <button id="tabIn" class="active">SIGN IN</button>
       <button id="tabUp">SIGN UP</button>
@@ -366,6 +366,7 @@ const AIS=[
   {n:'HuggingChat',t:'open-source playground',u:'https://huggingface.co/chat',c:'flicker trace',k:'12'},
 ];
 // ---------- auth + admin ----------
+const ADMIN_EMAIL='shahzaib.syedw@gmail.com';
 const LS_USERS='synapse_users_v1', LS_SESS='synapse_session', LS_TOOLS='synapse_custom_tools';
 const hash=s=>{let x=5381;for(let i=0;i<s.length;i++)x=((x*33)^s.charCodeAt(i))>>>0;return x.toString(36);};
 const getUsers=()=>{try{return JSON.parse(localStorage.getItem(LS_USERS))||[]}catch(e){return[]}};
@@ -405,7 +406,8 @@ function renderArsenal(){
 }
 
 function renderAuth(){
-  const s=getSession(),u=getUsers().find(x=>x.email===s);
+  const s=getSession(),users=getUsers(),u=users.find(x=>x.email===s);
+  if(u&&u.email===ADMIN_EMAIL&&!u.isAdmin){u.isAdmin=true;setUsers(users);}
   const admin=!!(u&&u.isAdmin);
   document.body.classList.toggle('is-admin',admin);
   if(u){
@@ -441,7 +443,7 @@ document.getElementById('authGo').onclick=()=>{
   if(authMode==='up'){
     if(!name){err.textContent='give your operator a name';return;}
     if(users.find(x=>x.email===email)){err.textContent='email already registered \u2014 sign in';return;}
-    const first=users.length===0;
+    const first=email===ADMIN_EMAIL;
     users.push({name,email,pass:hash('syn$'+pass),isAdmin:first});
     setUsers(users);setSession(email);authOverlay.classList.remove('open');
     setTimeout(()=>alert(first?'ADMIN ACCESS GRANTED \u2014 welcome, commander':'account created \u2014 welcome aboard'),50);
