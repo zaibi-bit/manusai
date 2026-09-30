@@ -150,6 +150,37 @@ footer{position:relative;z-index:1;text-align:center;padding:30px;font-size:12px
   color:var(--green-dim);border-top:1px solid var(--green-dim);background:rgba(0,8,3,.9)}
 footer .heart{color:var(--red)}
 @media(max-width:600px){.sys .hide-m{display:none}.hero{padding:40px 10px 24px}}
+/* auth + admin */
+#authArea{display:flex;align-items:center;gap:10px}
+.auth-btn{background:transparent;border:1px solid var(--green);color:var(--green);
+  font-family:inherit;font-size:11px;letter-spacing:2px;padding:7px 14px;cursor:pointer}
+.auth-btn:hover{background:var(--green);color:#000;box-shadow:0 0 14px rgba(0,255,65,.6)}
+.user-chip{font-size:11px;color:var(--cyan);letter-spacing:1px}
+.user-chip .admin-tag{color:var(--amber);border:1px solid var(--amber);padding:2px 6px;margin-left:6px;font-size:10px}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:200;display:none;
+  align-items:center;justify-content:center;padding:20px}
+.modal-overlay.open{display:flex}
+.modal{width:min(440px,94vw);background:#020a04;border:1px solid var(--green);
+  box-shadow:0 0 40px rgba(0,255,65,.25);padding:28px;animation:noteIn .25s ease}
+.modal h3{letter-spacing:3px;margin-bottom:6px;font-size:18px}
+.modal .sub{font-size:12px;color:var(--green-dim);margin-bottom:18px;line-height:1.6}
+.modal input,.modal select{width:100%;background:rgba(0,0,0,.6);border:1px solid var(--green-dim);
+  color:var(--green);font-family:inherit;font-size:14px;padding:11px;margin-bottom:12px;outline:none}
+.modal input:focus,.modal select:focus{border-color:var(--green);box-shadow:0 0 10px rgba(0,255,65,.25)}
+.modal select option{background:#020a04}
+.tab-row{display:flex;margin-bottom:18px;border:1px solid var(--green-dim)}
+.tab-row button{flex:1;background:none;border:none;color:var(--green-dim);font-family:inherit;
+  font-size:12px;letter-spacing:2px;padding:10px;cursor:pointer}
+.tab-row button.active{background:var(--green);color:#000;font-weight:700}
+.form-err{color:var(--red);font-size:12px;min-height:18px;margin-bottom:8px}
+.sec-head-row{display:flex;align-items:center;gap:14px;margin:56px 0 26px;flex-wrap:wrap}
+.sec-head-row .sec-title{margin:0;flex:1;min-width:200px}
+#addToolBtn{display:none}
+body.is-admin #addToolBtn{display:inline-block}
+.ai-btn .del-tool{position:absolute;bottom:8px;right:10px;z-index:3;display:none;
+  background:rgba(0,0,0,.6);border:1px solid var(--red);color:var(--red);font-family:inherit;
+  font-size:10px;padding:3px 8px;cursor:pointer}
+body.is-admin .ai-btn.custom .del-tool{display:block}
 </style>
 </head>
 <body>
@@ -162,6 +193,7 @@ footer .heart{color:var(--red)}
   <div class="sys">
     <span class="hide-m">ENCRYPTED</span>
     <span><span class="dot"></span> ONLINE</span>
+    <span id="authArea"></span>
     <span id="clock">--:--:--</span>
   </div>
 </header>
@@ -177,7 +209,10 @@ footer .heart{color:var(--red)}
     <div class="term-body" id="termBody"></div>
   </div>
 
-  <h2 class="sec-title"><span class="sec-num">[01]</span> AI ARSENAL</h2>
+  <div class="sec-head-row">
+    <h2 class="sec-title"><span class="sec-num">[01]</span> AI ARSENAL</h2>
+    <button class="hack-btn" id="addToolBtn">[+] ADD TOOL</button>
+  </div>
   <div class="ai-grid" id="aiGrid"></div>
 
   <h2 class="sec-title"><span class="sec-num">[02]</span> SECURE NOTES VAULT</h2>
@@ -200,6 +235,45 @@ footer .heart{color:var(--red)}
 <footer>
   SYNAPSE v1.0 — personal command center · notes stored locally in your browser <span class="heart">·</span> stay curious
 </footer>
+
+<div class="modal-overlay" id="authOverlay">
+  <div class="modal">
+    <h3>&gt; ACCESS TERMINAL</h3>
+    <p class="sub">sign in to sync your operator profile · the first account to sign up becomes admin</p>
+    <div class="tab-row">
+      <button id="tabIn" class="active">SIGN IN</button>
+      <button id="tabUp">SIGN UP</button>
+    </div>
+    <div id="nameWrap" style="display:none"><input id="authName" placeholder="> operator name" maxlength="30" autocomplete="off"></div>
+    <input id="authEmail" type="email" placeholder="> email" autocomplete="off">
+    <input id="authPass" type="password" placeholder="> password (min 4 chars)">
+    <div class="form-err" id="authErr"></div>
+    <div class="btn-row">
+      <button class="hack-btn" id="authGo">[&#9166;] ENTER</button>
+      <button class="hack-btn danger" id="authClose">[&times;] CLOSE</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="toolOverlay">
+  <div class="modal">
+    <h3>&gt; ADD AI TOOL</h3>
+    <p class="sub">admin only — the new tool appears in your arsenal instantly</p>
+    <input id="toolName" placeholder="> tool name (e.g. Midjourney)" maxlength="24">
+    <input id="toolUrl" placeholder="> https://..." autocomplete="off">
+    <input id="toolTag" placeholder="> tagline (e.g. ai art lab)" maxlength="40">
+    <select id="toolColor">
+      <option value="">accent: matrix green</option>
+      <option value="neon">accent: cyan</option>
+      <option value="amber">accent: amber</option>
+    </select>
+    <div class="form-err" id="toolErr"></div>
+    <div class="btn-row">
+      <button class="hack-btn" id="toolSave">[+] DEPLOY TOOL</button>
+      <button class="hack-btn danger" id="toolClose">[&times;] CLOSE</button>
+    </div>
+  </div>
+</div>
 
 <script>
 // ---------- matrix rain ----------
@@ -278,13 +352,113 @@ const AIS=[
   {n:'Poe',t:'multi-model hub',u:'https://poe.com',c:'neon trace',k:'11'},
   {n:'HuggingChat',t:'open-source playground',u:'https://huggingface.co/chat',c:'flicker trace',k:'12'},
 ];
+// ---------- auth + admin ----------
+const LS_USERS='synapse_users_v1', LS_SESS='synapse_session', LS_TOOLS='synapse_custom_tools';
+const hash=s=>{let x=5381;for(let i=0;i<s.length;i++)x=((x*33)^s.charCodeAt(i))>>>0;return x.toString(36);};
+const getUsers=()=>{try{return JSON.parse(localStorage.getItem(LS_USERS))||[]}catch(e){return[]}};
+const setUsers=u=>localStorage.setItem(LS_USERS,JSON.stringify(u));
+const getSession=()=>localStorage.getItem(LS_SESS);
+const setSession=e=>{e?localStorage.setItem(LS_SESS,e):localStorage.removeItem(LS_SESS);};
+const getTools=()=>{try{return JSON.parse(localStorage.getItem(LS_TOOLS))||[]}catch(e){return[]}};
+const setTools=t=>localStorage.setItem(LS_TOOLS,JSON.stringify(t));
+function isAdmin(){const s=getSession();const u=getUsers().find(x=>x.email===s);return !!(u&&u.isAdmin);}
+
 const grid=document.getElementById('aiGrid');
-AIS.forEach(a=>{
-  const el=document.createElement('a');
-  el.className='ai-btn '+a.c; el.href=a.u; el.target='_blank'; el.rel='noopener';
-  el.innerHTML=`<span class="scan"></span><span class="ai-key">[${a.k}]</span><span class="ai-name">${a.n}</span><span class="ai-tag">${a.t}</span>`;
-  grid.appendChild(el);
-});
+const authArea=document.getElementById('authArea');
+const authOverlay=document.getElementById('authOverlay');
+const toolOverlay=document.getElementById('toolOverlay');
+let authMode='in';
+
+function renderArsenal(){
+  grid.innerHTML='';
+  const all=[...AIS.map(a=>({...a})),...getTools()];
+  all.forEach((a,i)=>{
+    const el=document.createElement('a');
+    el.className='ai-btn '+a.c+(a.custom?' custom':'');
+    el.href=a.u;el.target='_blank';el.rel='noopener';
+    const key=String(i+1).padStart(2,'0');
+    el.innerHTML='<span class="scan"></span><span class="ai-key">['+key+']</span>'+
+      '<span class="ai-name">'+escapeHtml(a.n)+'</span><span class="ai-tag">'+escapeHtml(a.t)+'</span>'+
+      (a.custom?'<button class="del-tool" data-id="'+a.id+'">\u00d7</button>':'');
+    grid.appendChild(el);
+  });
+  grid.querySelectorAll('.del-tool').forEach(b=>b.onclick=e=>{
+    e.preventDefault();e.stopPropagation();
+    if(!isAdmin())return;
+    if(confirm('remove this tool from your arsenal?')){
+      setTools(getTools().filter(t=>t.id!==+b.dataset.id));renderArsenal();
+    }
+  });
+}
+
+function renderAuth(){
+  const s=getSession(),u=getUsers().find(x=>x.email===s);
+  const admin=!!(u&&u.isAdmin);
+  document.body.classList.toggle('is-admin',admin);
+  if(u){
+    authArea.innerHTML='<span class="user-chip">&gt; '+escapeHtml(u.name)+
+      (admin?'<span class="admin-tag">ADMIN</span>':'')+'</span>'+
+      '<button class="auth-btn" id="signOutBtn">SIGN OUT</button>';
+    document.getElementById('signOutBtn').onclick=()=>{setSession(null);renderAuth();renderArsenal();};
+  }else{
+    authArea.innerHTML='<button class="auth-btn" id="signInBtn">[ SIGN IN ]</button>';
+    document.getElementById('signInBtn').onclick=()=>authOverlay.classList.add('open');
+  }
+}
+
+function setAuthMode(m){authMode=m;
+  document.getElementById('tabIn').classList.toggle('active',m==='in');
+  document.getElementById('tabUp').classList.toggle('active',m==='up');
+  document.getElementById('nameWrap').style.display=m==='up'?'block':'none';
+  document.getElementById('authErr').textContent='';
+}
+document.getElementById('tabIn').onclick=()=>setAuthMode('in');
+document.getElementById('tabUp').onclick=()=>setAuthMode('up');
+document.getElementById('authClose').onclick=()=>authOverlay.classList.remove('open');
+authOverlay.addEventListener('click',e=>{if(e.target===authOverlay)authOverlay.classList.remove('open');});
+document.getElementById('authGo').onclick=()=>{
+  const name=document.getElementById('authName').value.trim();
+  const email=document.getElementById('authEmail').value.trim().toLowerCase();
+  const pass=document.getElementById('authPass').value;
+  const err=document.getElementById('authErr');
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){err.textContent='enter a valid email';return;}
+  if(pass.length<4){err.textContent='password min 4 chars';return;}
+  const users=getUsers();
+  if(authMode==='up'){
+    if(!name){err.textContent='give your operator a name';return;}
+    if(users.find(x=>x.email===email)){err.textContent='email already registered \u2014 sign in';return;}
+    const first=users.length===0;
+    users.push({name,email,pass:hash('syn$'+pass),isAdmin:first});
+    setUsers(users);setSession(email);authOverlay.classList.remove('open');
+    setTimeout(()=>alert(first?'ADMIN ACCESS GRANTED \u2014 welcome, commander':'account created \u2014 welcome aboard'),50);
+  }else{
+    const u=users.find(x=>x.email===email);
+    if(!u||u.pass!==hash('syn$'+pass)){err.textContent='invalid credentials';return;}
+    setSession(email);authOverlay.classList.remove('open');
+  }
+  document.getElementById('authPass').value='';
+  renderAuth();renderArsenal();
+};
+document.getElementById('addToolBtn').onclick=()=>{if(isAdmin())toolOverlay.classList.add('open');};
+document.getElementById('toolClose').onclick=()=>toolOverlay.classList.remove('open');
+toolOverlay.addEventListener('click',e=>{if(e.target===toolOverlay)toolOverlay.classList.remove('open');});
+document.getElementById('toolSave').onclick=()=>{
+  if(!isAdmin())return;
+  const n=document.getElementById('toolName').value.trim();
+  const u=document.getElementById('toolUrl').value.trim();
+  const t=document.getElementById('toolTag').value.trim()||'custom tool';
+  const c=document.getElementById('toolColor').value;
+  const err=document.getElementById('toolErr');
+  if(!n){err.textContent='name your tool';return;}
+  if(!/^https?:\/\/.+\..+/.test(u)){err.textContent='enter a valid url (https://...)';return;}
+  const tools=getTools();
+  tools.push({id:Date.now(),n,u,t,c,custom:true});
+  setTools(tools);renderArsenal();toolOverlay.classList.remove('open');
+  ['toolName','toolUrl','toolTag'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('toolColor').value='';err.textContent='';
+};
+renderAuth();
+renderArsenal();
 
 // ---------- notes vault (localStorage) ----------
 const LS='synapse_notes_v1';
