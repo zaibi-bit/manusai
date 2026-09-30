@@ -181,6 +181,13 @@ body.is-admin #addToolBtn{display:inline-block}
   background:rgba(0,0,0,.6);border:1px solid var(--red);color:var(--red);font-family:inherit;
   font-size:10px;padding:3px 8px;cursor:pointer}
 body.is-admin .ai-btn.custom .del-tool{display:block}
+/* per-user vault lock */
+#notes.is-locked #noteForm,#notes.is-locked .note-list,#notes.is-locked .notes-toolbar{display:none}
+.vault-locked{display:none;text-align:center;padding:54px 20px;border:1px dashed var(--green-dim);margin-bottom:26px}
+#notes.is-locked .vault-locked{display:block;animation:noteIn .3s ease}
+.vault-locked .lock-icon{font-size:36px;filter:drop-shadow(0 0 12px rgba(0,255,65,.6))}
+.vault-locked h3{letter-spacing:4px;font-size:20px;margin:16px 0 10px}
+.vault-locked p{color:var(--green-dim);font-size:13px;line-height:1.8;margin-bottom:22px}
 </style>
 </head>
 <body>
@@ -217,6 +224,12 @@ body.is-admin .ai-btn.custom .del-tool{display:block}
 
   <h2 class="sec-title"><span class="sec-num">[02]</span> SECURE NOTES VAULT</h2>
   <div class="notes-panel">
+  <div class="vault-locked" id="vaultLocked">
+    <div class="lock-icon">[&#128274;]</div>
+    <h3>VAULT LOCKED</h3>
+    <p>notes are private and tied to your account.<br>each operator sees only their own files.<br>sign in to unlock your personal vault.</p>
+    <button class="hack-btn" id="vaultSignIn">[ SIGN IN TO UNLOCK ]</button>
+  </div>
     <form class="notes-form" id="noteForm">
       <input id="noteTitle" placeholder="> note_title.exe — give it a name" maxlength="80" autocomplete="off">
       <textarea id="noteBody" placeholder="> decrypt your thoughts here..."></textarea>
@@ -404,6 +417,7 @@ function renderAuth(){
     authArea.innerHTML='<button class="auth-btn" id="signInBtn">[ SIGN IN ]</button>';
     document.getElementById('signInBtn').onclick=()=>authOverlay.classList.add('open');
   }
+  updateVault();
 }
 
 function setAuthMode(m){authMode=m;
@@ -457,13 +471,11 @@ document.getElementById('toolSave').onclick=()=>{
   ['toolName','toolUrl','toolTag'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('toolColor').value='';err.textContent='';
 };
-renderAuth();
-renderArsenal();
 
-// ---------- notes vault (localStorage) ----------
-const LS='synapse_notes_v1';
-const getNotes=()=>{try{return JSON.parse(localStorage.getItem(LS))||[]}catch(e){return[]}};
-const setNotes=n=>localStorage.setItem(LS,JSON.stringify(n));
+// ---------- notes vault (localStorage, per-user private) ----------
+const notesKey=e=>'synapse_notes_v1__'+(e||getSession()||'');
+const getNotes=()=>{if(!getSession())return[];try{return JSON.parse(localStorage.getItem(notesKey()))||[]}catch(e){return[]}};
+const setNotes=n=>{if(getSession())localStorage.setItem(notesKey(),JSON.stringify(n));};
 let editingId=null;
 const list=document.getElementById('noteList'),count=document.getElementById('noteCount');
 const form=document.getElementById('noteForm'),titleI=document.getElementById('noteTitle'),bodyI=document.getElementById('noteBody');
@@ -499,6 +511,7 @@ function renderNotes(){
 function escapeHtml(s){return (s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 form.onsubmit=e=>{
   e.preventDefault();
+  if(!getSession()){authOverlay.classList.add('open');return;}
   const t=titleI.value.trim(),b=bodyI.value.trim();
   if(!t&&!b)return;
   const all=getNotes();
@@ -516,8 +529,30 @@ document.getElementById('wipeBtn').onclick=()=>{
 };
 renderNotes();
 
+// ---------- per-user vault ----------
+function migrateNotes(email){
+  try{
+    const legacy=localStorage.getItem('synapse_notes_v1');
+    const mine=localStorage.getItem(notesKey(email));
+    if(legacy&&!mine){localStorage.setItem(notesKey(email),legacy);localStorage.removeItem('synapse_notes_v1');}
+  }catch(e){}
+}
+function updateVault(){
+  const s=getSession();
+  document.getElementById('notes').classList.toggle('is-locked',!s);
+  editingId=null;
+  if(s){migrateNotes(s);renderNotes();}
+  else{list.innerHTML='';count.textContent='> vault locked — sign in to unlock';}
+}
+document.getElementById('vaultSignIn').onclick=()=>authOverlay.classList.add('open');
+
 // ---------- clock ----------
 setInterval(()=>{document.getElementById('clock').textContent=new Date().toLocaleTimeString('en-GB');},1000);
+
+// ---------- init ----------
+renderAuth();
+renderArsenal();
+updateVault();
 </script>
 </body>
 </html>
