@@ -173,6 +173,7 @@ footer .heart{color:var(--red)}
   font-size:12px;letter-spacing:2px;padding:10px;cursor:pointer}
 .tab-row button.active{background:var(--green);color:#000;font-weight:700}
 .form-err{color:var(--red);font-size:12px;min-height:18px;margin-bottom:8px}
+.form-ok{color:var(--green);font-size:12px;min-height:18px;margin-bottom:8px}
 .sec-head-row{display:flex;align-items:center;gap:14px;margin:56px 0 26px;flex-wrap:wrap}
 .sec-head-row .sec-title{margin:0;flex:1;min-width:200px}
 #addToolBtn{display:none}
@@ -192,6 +193,9 @@ body.is-admin .ai-btn.custom .edit-tool{display:block}
 .vault-locked .lock-icon{font-size:36px;filter:drop-shadow(0 0 12px rgba(0,255,65,.6))}
 .vault-locked h3{letter-spacing:4px;font-size:20px;margin:16px 0 10px}
 .vault-locked p{color:var(--green-dim);font-size:13px;line-height:1.8;margin-bottom:22px}
+.forgot-link{display:inline-block;margin:-6px 0 12px;font-size:11px;letter-spacing:1px;
+  color:var(--green-dim);background:none;border:none;font-family:inherit;cursor:pointer;text-decoration:underline}
+.forgot-link:hover{color:var(--cyan)}
 </style>
 </head>
 <body>
@@ -250,21 +254,24 @@ body.is-admin .ai-btn.custom .edit-tool{display:block}
 </main>
 
 <footer>
-  SYNAPSE v1.0 — personal command center · notes stored locally in your browser <span class="heart">·</span> stay curious
+  SYNAPSE v1.0 — personal command center · notes synced to your private cloud vault <span class="heart">·</span> stay curious
 </footer>
 
 <div class="modal-overlay" id="authOverlay">
   <div class="modal">
-    <h3>&gt; ACCESS TERMINAL</h3>
-    <p class="sub">sign in to unlock your private notes vault</p>
-    <div class="tab-row">
+    <h3 id="authTitle">&gt; ACCESS TERMINAL</h3>
+    <p class="sub" id="authSub">sign in to unlock your private notes vault</p>
+    <div class="tab-row" id="authTabs">
       <button id="tabIn" class="active">SIGN IN</button>
       <button id="tabUp">SIGN UP</button>
     </div>
     <div id="nameWrap" style="display:none"><input id="authName" placeholder="> operator name" maxlength="30" autocomplete="off"></div>
-    <input id="authEmail" type="email" placeholder="> email" autocomplete="off">
-    <input id="authPass" type="password" placeholder="> password (min 4 chars)">
+    <div id="emailWrap"><input id="authEmail" type="email" placeholder="> email" autocomplete="off"></div>
+    <input id="authPass" type="password" placeholder="> password (min 6 chars)">
+    <div id="pass2Wrap" style="display:none"><input id="authPass2" type="password" placeholder="> repeat password"></div>
+    <div id="forgotWrap"><button class="forgot-link" id="forgotBtn">forgot password?</button></div>
     <div class="form-err" id="authErr"></div>
+    <div class="form-ok" id="authOk"></div>
     <div class="btn-row">
       <button class="hack-btn" id="authGo">[&#9166;] ENTER</button>
       <button class="hack-btn danger" id="authClose">[&times;] CLOSE</button>
@@ -292,6 +299,7 @@ body.is-admin .ai-btn.custom .edit-tool{display:block}
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 // ---------- matrix rain ----------
 const cv=document.getElementById('matrix'),cx=cv.getContext('2d');
@@ -354,127 +362,315 @@ const termIv=setInterval(()=>{
   }else clearInterval(termIv);
 },420);
 
-// ---------- AI buttons ----------
-const AIS=[
-  {n:'ChatGPT',t:'openai · general purpose',u:'https://chatgpt.com',c:'glitch-btn',k:'01'},
-  {n:'Claude',t:'anthropic · deep reasoning',u:'https://claude.ai',c:'trace',k:'02'},
-  {n:'Gemini',t:'google · multimodal',u:'https://gemini.google.com',c:'neon glitch-btn',k:'03'},
-  {n:'Grok',t:'xai · real-time edge',u:'https://grok.com',c:'flicker',k:'04'},
-  {n:'Perplexity',t:'answer engine · cited',u:'https://www.perplexity.ai',c:'trace',k:'05'},
-  {n:'Copilot',t:'microsoft · everyday ai',u:'https://copilot.microsoft.com',c:'neon flicker',k:'06'},
-  {n:'Meta AI',t:'meta · social brain',u:'https://www.meta.ai',c:'glitch-btn',k:'07'},
-  {n:'DeepSeek',t:'open weights · coder',u:'https://chat.deepseek.com',c:'trace flicker',k:'08'},
-  {n:'Le Chat',t:'mistral · european ai',u:'https://chat.mistral.ai',c:'amber glitch-btn',k:'09'},
-  {n:'Qwen',t:'alibaba · multilingual',u:'https://chat.qwen.ai',c:'amber trace',k:'10'},
-  {n:'Poe',t:'multi-model hub',u:'https://poe.com',c:'neon trace',k:'11'},
-  {n:'HuggingChat',t:'open-source playground',u:'https://huggingface.co/chat',c:'flicker trace',k:'12'},
+// ============================================================
+//  SUPABASE DATA LAYER
+//  Project URL + anon key are public browser config by design.
+//  Admin authorization is enforced by database state + RLS,
+//  never by client-side email logic.
+// ============================================================
+const SUPABASE_URL='https://yexuuxyvrryedwzrqgcl.supabase.co';
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlleHV1eHl2cnJ5ZWR3enJxZ2NsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA3OTE4NjEsImV4cCI6MjEwNjM2Nzg2MX0.4TJjw8hKDRFHX6C3tZfMKt187vumb_HP3P-a67YvcnU';
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+
+// Local fallback copy of the 12 builtin tools (used only if the DB read fails)
+const AIS_FALLBACK=[
+  {name:'ChatGPT',tagline:'openai · general purpose',url:'https://chatgpt.com',color:'glitch-btn',sort_order:1,builtin:true,is_global:true},
+  {name:'Claude',tagline:'anthropic · deep reasoning',url:'https://claude.ai',color:'trace',sort_order:2,builtin:true,is_global:true},
+  {name:'Gemini',tagline:'google · multimodal',url:'https://gemini.google.com',color:'neon glitch-btn',sort_order:3,builtin:true,is_global:true},
+  {name:'Grok',tagline:'xai · real-time edge',url:'https://grok.com',color:'flicker',sort_order:4,builtin:true,is_global:true},
+  {name:'Perplexity',tagline:'answer engine · cited',url:'https://www.perplexity.ai',color:'trace',sort_order:5,builtin:true,is_global:true},
+  {name:'Copilot',tagline:'microsoft · everyday ai',url:'https://copilot.microsoft.com',color:'neon flicker',sort_order:6,builtin:true,is_global:true},
+  {name:'Meta AI',tagline:'meta · social brain',url:'https://www.meta.ai',color:'glitch-btn',sort_order:7,builtin:true,is_global:true},
+  {name:'DeepSeek',tagline:'open weights · coder',url:'https://chat.deepseek.com',color:'trace flicker',sort_order:8,builtin:true,is_global:true},
+  {name:'Le Chat',tagline:'mistral · european ai',url:'https://chat.mistral.ai',color:'amber glitch-btn',sort_order:9,builtin:true,is_global:true},
+  {name:'Qwen',tagline:'alibaba · multilingual',url:'https://chat.qwen.ai',color:'amber trace',sort_order:10,builtin:true,is_global:true},
+  {name:'Poe',tagline:'multi-model hub',url:'https://poe.com',color:'neon trace',sort_order:11,builtin:true,is_global:true},
+  {name:'HuggingChat',tagline:'open-source playground',url:'https://huggingface.co/chat',color:'flicker trace',sort_order:12,builtin:true,is_global:true},
 ];
-// ---------- auth + admin ----------
-const ADMIN_EMAIL='shahzaib.syedw@gmail.com';
-const LS_USERS='synapse_users_v1', LS_SESS='synapse_session', LS_TOOLS='synapse_custom_tools';
-const hash=s=>{let x=5381;for(let i=0;i<s.length;i++)x=((x*33)^s.charCodeAt(i))>>>0;return x.toString(36);};
-const getUsers=()=>{try{return JSON.parse(localStorage.getItem(LS_USERS))||[]}catch(e){return[]}};
-const setUsers=u=>localStorage.setItem(LS_USERS,JSON.stringify(u));
-const getSession=()=>localStorage.getItem(LS_SESS);
-const setSession=e=>{e?localStorage.setItem(LS_SESS,e):localStorage.removeItem(LS_SESS);};
-const getTools=()=>{try{return JSON.parse(localStorage.getItem(LS_TOOLS))||[]}catch(e){return[]}};
-const setTools=t=>localStorage.setItem(LS_TOOLS,JSON.stringify(t));
-function isAdmin(){const s=getSession();const u=getUsers().find(x=>x.email===s);return !!(u&&u.isAdmin);}
+
+let currentUser=null;   // supabase auth user
+let isAdminFlag=false;  // from public.profiles.is_admin
+let tools=[];           // global tools from DB
+let notes=[];           // this user's notes from DB
 
 const grid=document.getElementById('aiGrid');
 const authArea=document.getElementById('authArea');
 const authOverlay=document.getElementById('authOverlay');
 const toolOverlay=document.getElementById('toolOverlay');
-let authMode='in';
+let authMode='in'; // 'in' | 'up' | 'reset'
+
+function escapeHtml(s){return (s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function authErr(t){document.getElementById('authErr').textContent=t||'';}
+function authOk(t){document.getElementById('authOk').textContent=t||'';}
+
+// ---------- tools ----------
+async function loadTools(){
+  try{
+    const {data,error}=await sb.from('tools').select('*').eq('is_global',true).order('sort_order',{ascending:true});
+    if(error)throw error;
+    tools=data||[];
+  }catch(e){
+    console.warn('tools db read failed, using fallback',e);
+    tools=AIS_FALLBACK;
+  }
+  renderArsenal();
+}
 
 function renderArsenal(){
   grid.innerHTML='';
-  const all=[...AIS.map(a=>({...a})),...getTools()];
-  all.forEach((a,i)=>{
+  tools.forEach((a,i)=>{
     const el=document.createElement('a');
-    el.className='ai-btn '+a.c+(a.custom?' custom':'');
-    el.href=a.u;el.target='_blank';el.rel='noopener';
+    const custom=!a.builtin;
+    el.className='ai-btn '+(a.color||'')+(custom?' custom':'');
+    el.href=a.url;el.target='_blank';el.rel='noopener';
     const key=String(i+1).padStart(2,'0');
     el.innerHTML='<span class="scan"></span><span class="ai-key">['+key+']</span>'+
-      '<span class="ai-name">'+escapeHtml(a.n)+'</span><span class="ai-tag">'+escapeHtml(a.t)+'</span>'+
-      (a.custom?'<button class="edit-tool" data-id="'+a.id+'">✎</button><button class="del-tool" data-id="'+a.id+'">×</button>':'');
+      '<span class="ai-name">'+escapeHtml(a.name)+'</span><span class="ai-tag">'+escapeHtml(a.tagline)+'</span>'+
+      (custom?'<button class="edit-tool" data-id="'+a.id+'">✎</button><button class="del-tool" data-id="'+a.id+'">×</button>':'');
     grid.appendChild(el);
   });
   grid.querySelectorAll('.edit-tool').forEach(b=>b.onclick=e=>{
     e.preventDefault();e.stopPropagation();
-    if(!isAdmin())return;
-    const t=getTools().find(x=>x.id===+b.dataset.id);
+    if(!isAdminFlag)return;
+    const t=tools.find(x=>String(x.id)===b.dataset.id);
     if(!t)return;
     editingToolId=t.id;
     document.getElementById('toolModalTitle').innerHTML='&gt; EDIT AI TOOL';
     document.getElementById('toolSave').innerHTML='[↻] UPDATE TOOL';
-    document.getElementById('toolName').value=t.n;
-    document.getElementById('toolUrl').value=t.u;
-    document.getElementById('toolTag').value=t.t;
-    document.getElementById('toolColor').value=t.c||'';
+    document.getElementById('toolName').value=t.name||'';
+    document.getElementById('toolUrl').value=t.url||'';
+    document.getElementById('toolTag').value=t.tagline||'';
+    document.getElementById('toolColor').value=t.color||'';
     document.getElementById('toolErr').textContent='';
     toolOverlay.classList.add('open');
   });
-  grid.querySelectorAll('.del-tool').forEach(b=>b.onclick=e=>{
+  grid.querySelectorAll('.del-tool').forEach(b=>b.onclick=async e=>{
     e.preventDefault();e.stopPropagation();
-    if(!isAdmin())return;
-    if(confirm('remove this tool from your arsenal?')){
-      setTools(getTools().filter(t=>t.id!==+b.dataset.id));renderArsenal();
-    }
+    if(!isAdminFlag)return;
+    if(!confirm('remove this tool from your arsenal?'))return;
+    const {error}=await sb.from('tools').delete().eq('id',b.dataset.id);
+    if(error){alert('delete failed: '+error.message);return;}
+    await loadTools();
   });
 }
 
+// ---------- auth UI ----------
+function setAuthMode(m){
+  authMode=m;authErr('');authOk('');
+  document.getElementById('tabIn').classList.toggle('active',m==='in');
+  document.getElementById('tabUp').classList.toggle('active',m==='up');
+  document.getElementById('authTabs').style.display=m==='reset'?'none':'flex';
+  document.getElementById('nameWrap').style.display=m==='up'?'block':'none';
+  document.getElementById('emailWrap').style.display=m==='reset'?'none':'block';
+  document.getElementById('pass2Wrap').style.display=m==='reset'?'block':'none';
+  document.getElementById('forgotWrap').style.display=m==='in'?'block':'none';
+  document.getElementById('authTitle').innerHTML=m==='reset'?'&gt; SET NEW PASSWORD':'&gt; ACCESS TERMINAL';
+  document.getElementById('authSub').textContent=m==='reset'
+    ?'choose a new password for your operator account'
+    :(m==='up'?'create your operator account':'sign in to unlock your private notes vault');
+  document.getElementById('authPass').placeholder=m==='reset'?'> new password (min 6 chars)':'> password (min 6 chars)';
+  document.getElementById('authGo').innerHTML=m==='reset'?'[↻] SET PASSWORD':'[⏎] ENTER';
+}
+document.getElementById('tabIn').onclick=()=>setAuthMode('in');
+document.getElementById('tabUp').onclick=()=>setAuthMode('up');
+document.getElementById('authClose').onclick=()=>{authOverlay.classList.remove('open');setAuthMode('in');};
+authOverlay.addEventListener('click',e=>{if(e.target===authOverlay){authOverlay.classList.remove('open');setAuthMode('in');}});
+document.getElementById('forgotBtn').onclick=async ()=>{
+  const email=document.getElementById('authEmail').value.trim().toLowerCase();
+  authErr('');authOk('');
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){authErr('enter your email first, then hit forgot password');return;}
+  const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});
+  if(error){authErr(error.message);return;}
+  authOk('reset link sent — check your inbox');
+};
+
+document.getElementById('authGo').onclick=async ()=>{
+  const email=document.getElementById('authEmail').value.trim().toLowerCase();
+  const pass=document.getElementById('authPass').value;
+  const pass2=document.getElementById('authPass2').value;
+  const name=document.getElementById('authName').value.trim();
+  authErr('');authOk('');
+  if(authMode==='reset'){
+    if(pass.length<6){authErr('password min 6 chars');return;}
+    if(pass!==pass2){authErr('passwords do not match');return;}
+    const {error}=await sb.auth.updateUser({password:pass});
+    if(error){authErr(error.message);return;}
+    authOk('password updated — welcome back, operator');
+    document.getElementById('authPass').value='';document.getElementById('authPass2').value='';
+    setTimeout(()=>{authOverlay.classList.remove('open');setAuthMode('in');},1200);
+    return;
+  }
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){authErr('enter a valid email');return;}
+  if(pass.length<6){authErr('password min 6 chars');return;}
+  if(authMode==='up'){
+    if(!name){authErr('give your operator a name');return;}
+    const {data,error}=await sb.auth.signUp({email,password:pass,options:{data:{name}}});
+    if(error){authErr(error.message);return;}
+    if(data.session){authOverlay.classList.remove('open');}
+    else authOk('account created — check your inbox to confirm, then sign in');
+  }else{
+    const {error}=await sb.auth.signInWithPassword({email,password:pass});
+    if(error){authErr(error.message);return;}
+    authOverlay.classList.remove('open');
+  }
+  document.getElementById('authPass').value='';
+};
+
 function renderAuth(){
-  const s=getSession(),users=getUsers(),u=users.find(x=>x.email===s);
-  if(u&&u.email===ADMIN_EMAIL&&!u.isAdmin){u.isAdmin=true;setUsers(users);}
-  const admin=!!(u&&u.isAdmin);
-  document.body.classList.toggle('is-admin',admin);
+  const u=currentUser;
+  document.body.classList.toggle('is-admin',!!(u&&isAdminFlag));
   if(u){
-    authArea.innerHTML='<span class="user-chip">&gt; '+escapeHtml(u.name)+
-      (admin?'<span class="admin-tag">ADMIN</span>':'')+'</span>'+
+    const label=u.user_metadata&&u.user_metadata.name?u.user_metadata.name:(u.email||'').split('@')[0];
+    authArea.innerHTML='<span class="user-chip">&gt; '+escapeHtml(label)+
+      (isAdminFlag?'<span class="admin-tag">ADMIN</span>':'')+'</span>'+
       '<button class="auth-btn" id="signOutBtn">SIGN OUT</button>';
-    document.getElementById('signOutBtn').onclick=()=>{setSession(null);renderAuth();renderArsenal();};
+    document.getElementById('signOutBtn').onclick=async ()=>{await sb.auth.signOut();};
   }else{
     authArea.innerHTML='<button class="auth-btn" id="signInBtn">[ SIGN IN ]</button>';
-    document.getElementById('signInBtn').onclick=()=>authOverlay.classList.add('open');
+    document.getElementById('signInBtn').onclick=()=>{setAuthMode('in');authOverlay.classList.add('open');};
   }
   updateVault();
 }
 
-function setAuthMode(m){authMode=m;
-  document.getElementById('tabIn').classList.toggle('active',m==='in');
-  document.getElementById('tabUp').classList.toggle('active',m==='up');
-  document.getElementById('nameWrap').style.display=m==='up'?'block':'none';
-  document.getElementById('authErr').textContent='';
+// ---------- admin profile flag (DB-driven) ----------
+async function refreshAdminFlag(){
+  isAdminFlag=false;
+  if(!currentUser)return;
+  try{
+    const {data,error}=await sb.from('profiles').select('is_admin').eq('id',currentUser.id).maybeSingle();
+    if(!error&&data)isAdminFlag=!!data.is_admin;
+  }catch(e){console.warn('admin flag read failed',e);}
 }
-document.getElementById('tabIn').onclick=()=>setAuthMode('in');
-document.getElementById('tabUp').onclick=()=>setAuthMode('up');
-document.getElementById('authClose').onclick=()=>authOverlay.classList.remove('open');
-authOverlay.addEventListener('click',e=>{if(e.target===authOverlay)authOverlay.classList.remove('open');});
-document.getElementById('authGo').onclick=()=>{
-  const name=document.getElementById('authName').value.trim();
-  const email=document.getElementById('authEmail').value.trim().toLowerCase();
-  const pass=document.getElementById('authPass').value;
-  const err=document.getElementById('authErr');
-  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){err.textContent='enter a valid email';return;}
-  if(pass.length<4){err.textContent='password min 4 chars';return;}
-  const users=getUsers();
-  if(authMode==='up'){
-    if(!name){err.textContent='give your operator a name';return;}
-    if(users.find(x=>x.email===email)){err.textContent='email already registered \u2014 sign in';return;}
-    const first=email===ADMIN_EMAIL;
-    users.push({name,email,pass:hash('syn$'+pass),isAdmin:first});
-    setUsers(users);setSession(email);authOverlay.classList.remove('open');
-    setTimeout(()=>alert(first?'ADMIN ACCESS GRANTED \u2014 welcome, commander':'account created \u2014 welcome aboard'),50);
+
+// ---------- one-time legacy migration (localStorage -> cloud) ----------
+async function migrateLegacy(){
+  if(!currentUser)return;
+  const flag='synapse_migrated_'+currentUser.id;
+  if(localStorage.getItem(flag))return;
+  const email=(currentUser.email||'').toLowerCase();
+  try{
+    // legacy notes
+    let legacy=[];
+    try{legacy=JSON.parse(localStorage.getItem('synapse_notes_v1__'+email))||[];}catch(e){}
+    if(legacy.length){
+      const rows=legacy.map(n=>({user_id:currentUser.id,
+        title:(n.title||'untitled').slice(0,200),body:n.body||'',pinned:!!n.pinned,
+        created_at:n.ts?new Date(n.ts).toISOString():undefined,
+        updated_at:n.ts?new Date(n.ts).toISOString():undefined}));
+      await sb.from('notes').insert(rows);
+    }
+    // legacy custom tools (admin only)
+    let ctools=[];
+    try{ctools=JSON.parse(localStorage.getItem('synapse_custom_tools'))||[];}catch(e){}
+    if(ctools.length&&isAdminFlag){
+      const maxSort=tools.reduce((m,t)=>Math.max(m,t.sort_order||0),0);
+      const rows=ctools.map((t,i)=>({name:t.n,url:t.u,tagline:t.t||'custom tool',
+        color:t.c||'',sort_order:maxSort+1+i,builtin:false,is_global:true}));
+      await sb.from('tools').insert(rows);
+    }
+  }catch(e){console.warn('legacy migration failed',e);}
+  try{localStorage.setItem(flag,'1');}catch(e){}
+  // one-time cleanup of legacy auth keys
+  ['synapse_users_v1','synapse_session','synapse_custom_tools'].forEach(k=>{try{localStorage.removeItem(k);}catch(e){}});
+  try{localStorage.removeItem('synapse_notes_v1__'+email);}catch(e){}
+  try{localStorage.removeItem('synapse_notes_v1');}catch(e){}
+}
+
+// ---------- notes vault (cloud, per-user private) ----------
+let editingId=null;
+const list=document.getElementById('noteList'),count=document.getElementById('noteCount');
+const form=document.getElementById('noteForm'),titleI=document.getElementById('noteTitle'),bodyI=document.getElementById('noteBody');
+const saveBtn=document.getElementById('saveBtn');
+
+async function loadNotes(){
+  notes=[];
+  if(!currentUser){renderNotes();return;}
+  try{
+    const {data,error}=await sb.from('notes').select('*').eq('user_id',currentUser.id).order('updated_at',{ascending:false});
+    if(error)throw error;
+    notes=data||[];
+  }catch(e){console.warn('notes load failed',e);}
+  renderNotes();
+}
+
+function renderNotes(){
+  const q=document.getElementById('searchBox').value.toLowerCase();
+  const shown=notes.filter(n=>((n.title||'')+' '+(n.body||'')).toLowerCase().includes(q));
+  count.textContent='> '+notes.length+' file(s) in vault · showing '+shown.length;
+  if(!shown.length){list.innerHTML='<div class="empty">vault empty — write your first note, operator</div>';return;}
+  list.innerHTML='';
+  shown.forEach(n=>{
+    const d=document.createElement('div');
+    d.className='note'+(n.pinned?' amber-n':'');
+    const ts=n.updated_at?new Date(n.updated_at).toLocaleString():'';
+    d.innerHTML='<div class="note-head"><span class="note-title">'+escapeHtml(n.title||'untitled')+'</span>'+
+      '<span class="note-time">'+ts+'</span></div>'+
+      '<div class="note-body">'+escapeHtml(n.body||'')+'</div>'+
+      '<div class="note-actions">'+
+        '<button class="mini-btn" data-a="pin">'+(n.pinned?'UNPIN':'PIN')+'</button>'+
+        '<button class="mini-btn" data-a="edit">EDIT</button>'+
+        '<button class="mini-btn del" data-a="del">DELETE</button>'+
+      '</div>';
+    d.querySelectorAll('.mini-btn').forEach(b=>b.onclick=async ()=>{
+      const act=b.dataset.a;
+      if(act==='del'){
+        if(!confirm('permanently delete this note?'))return;
+        const {error}=await sb.from('notes').delete().eq('id',n.id);
+        if(error){alert('delete failed: '+error.message);return;}
+        await loadNotes();
+      }else if(act==='pin'){
+        const {error}=await sb.from('notes').update({pinned:!n.pinned,updated_at:new Date().toISOString()}).eq('id',n.id);
+        if(error){alert('update failed: '+error.message);return;}
+        await loadNotes();
+      }else if(act==='edit'){
+        editingId=n.id;titleI.value=n.title||'';bodyI.value=n.body||'';
+        saveBtn.textContent='[↻] UPDATE NOTE';titleI.focus();
+        window.scrollTo({top:form.offsetTop-80,behavior:'smooth'});
+      }
+    });
+    list.appendChild(d);
+  });
+}
+form.onsubmit=async e=>{
+  e.preventDefault();
+  if(!currentUser){setAuthMode('in');authOverlay.classList.add('open');return;}
+  const t=titleI.value.trim(),b=bodyI.value.trim();
+  if(!t&&!b)return;
+  if(editingId){
+    const {error}=await sb.from('notes').update({title:t||'untitled',body:b,updated_at:new Date().toISOString()}).eq('id',editingId);
+    if(error){alert('save failed: '+error.message);return;}
+    editingId=null;saveBtn.textContent='[+] SAVE NOTE';
   }else{
-    const u=users.find(x=>x.email===email);
-    if(!u||u.pass!==hash('syn$'+pass)){err.textContent='invalid credentials';return;}
-    setSession(email);authOverlay.classList.remove('open');
+    const {error}=await sb.from('notes').insert({user_id:currentUser.id,title:t||'untitled',body:b,pinned:false});
+    if(error){alert('save failed: '+error.message);return;}
   }
-  document.getElementById('authPass').value='';
-  renderAuth();renderArsenal();
+  titleI.value='';bodyI.value='';await loadNotes();
 };
-document.getElementById('addToolBtn').onclick=()=>{if(isAdmin()){resetToolForm();toolOverlay.classList.add('open');}};
+document.getElementById('searchBox').oninput=renderNotes;
+document.getElementById('exportBtn').onclick=()=>{
+  const blob=new Blob([JSON.stringify(notes,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='synapse-notes.json';a.click();
+};
+document.getElementById('wipeBtn').onclick=async ()=>{
+  if(!currentUser)return;
+  if(!confirm('WIPE ENTIRE VAULT? this cannot be undone.'))return;
+  const {error}=await sb.from('notes').delete().eq('user_id',currentUser.id);
+  if(error){alert('wipe failed: '+error.message);return;}
+  await loadNotes();
+};
+
+// ---------- per-user vault lock ----------
+function updateVault(){
+  const s=!!currentUser;
+  document.getElementById('notes').classList.toggle('is-locked',!s);
+  editingId=null;
+  if(s)renderNotes();
+  else{list.innerHTML='';count.textContent='> vault locked — sign in to unlock';}
+}
+document.getElementById('vaultSignIn').onclick=()=>{setAuthMode('in');authOverlay.classList.add('open');};
+
+// ---------- admin add/edit tool ----------
+document.getElementById('addToolBtn').onclick=()=>{if(isAdminFlag){resetToolForm();toolOverlay.classList.add('open');}};
 function resetToolForm(){
   editingToolId=null;
   document.getElementById('toolModalTitle').innerHTML='&gt; ADD AI TOOL';
@@ -486,8 +682,8 @@ function resetToolForm(){
 document.getElementById('toolClose').onclick=()=>{resetToolForm();toolOverlay.classList.remove('open');};
 toolOverlay.addEventListener('click',e=>{if(e.target===toolOverlay){resetToolForm();toolOverlay.classList.remove('open');}});
 let editingToolId=null;
-document.getElementById('toolSave').onclick=()=>{
-  if(!isAdmin())return;
+document.getElementById('toolSave').onclick=async ()=>{
+  if(!isAdminFlag)return;
   const n=document.getElementById('toolName').value.trim();
   const u=document.getElementById('toolUrl').value.trim();
   const t=document.getElementById('toolTag').value.trim()||'custom tool';
@@ -495,98 +691,44 @@ document.getElementById('toolSave').onclick=()=>{
   const err=document.getElementById('toolErr');
   if(!n){err.textContent='name your tool';return;}
   if(!/^https?:\/\/.+\..+/.test(u)){err.textContent='enter a valid url (https://...)';return;}
-  const tools=getTools();
   if(editingToolId){
-    const x=tools.find(t=>t.id===editingToolId);
-    if(x){x.n=n;x.u=u;x.t=t;x.c=c;}
+    const {error}=await sb.from('tools').update({name:n,url:u,tagline:t,color:c}).eq('id',editingToolId);
+    if(error){err.textContent=error.message;return;}
   }else{
-    tools.push({id:Date.now(),n,u,t,c,custom:true});
+    const maxSort=tools.reduce((m,x)=>Math.max(m,x.sort_order||0),0);
+    const {error}=await sb.from('tools').insert({name:n,url:u,tagline:t,color:c,sort_order:maxSort+1,builtin:false,is_global:true});
+    if(error){err.textContent=error.message;return;}
   }
-  setTools(tools);renderArsenal();toolOverlay.classList.remove('open');
-  resetToolForm();
+  toolOverlay.classList.remove('open');resetToolForm();await loadTools();
 };
-
-// ---------- notes vault (localStorage, per-user private) ----------
-const notesKey=e=>'synapse_notes_v1__'+(e||getSession()||'');
-const getNotes=()=>{if(!getSession())return[];try{return JSON.parse(localStorage.getItem(notesKey()))||[]}catch(e){return[]}};
-const setNotes=n=>{if(getSession())localStorage.setItem(notesKey(),JSON.stringify(n));};
-let editingId=null;
-const list=document.getElementById('noteList'),count=document.getElementById('noteCount');
-const form=document.getElementById('noteForm'),titleI=document.getElementById('noteTitle'),bodyI=document.getElementById('noteBody');
-const saveBtn=document.getElementById('saveBtn');
-
-function renderNotes(){
-  const q=document.getElementById('searchBox').value.toLowerCase();
-  const notes=getNotes().filter(n=>(n.title+' '+n.body).toLowerCase().includes(q));
-  count.textContent=`> ${getNotes().length} file(s) in vault · showing ${notes.length}`;
-  if(!notes.length){list.innerHTML='<div class="empty">vault empty — write your first note, operator</div>';return;}
-  list.innerHTML='';
-  notes.slice().reverse().forEach(n=>{
-    const d=document.createElement('div');
-    d.className='note'+(n.pinned?' amber-n':'');
-    d.innerHTML=`<div class="note-head"><span class="note-title">${escapeHtml(n.title)||'untitled'}</span>
-      <span class="note-time">${new Date(n.ts).toLocaleString()}</span></div>
-      <div class="note-body">${escapeHtml(n.body)}</div>
-      <div class="note-actions">
-        <button class="mini-btn" data-a="pin">${n.pinned?'UNPIN':'PIN'}</button>
-        <button class="mini-btn" data-a="edit">EDIT</button>
-        <button class="mini-btn del" data-a="del">DELETE</button>
-      </div>`;
-    d.querySelectorAll('.mini-btn').forEach(b=>b.onclick=()=>{
-      const all=getNotes(),x=all.find(v=>v.id===n.id);
-      if(b.dataset.a==='del'&&confirm('permanently delete this note?'))setNotes(all.filter(v=>v.id!==n.id));
-      if(b.dataset.a==='pin'){x.pinned=!x.pinned;setNotes(all);}
-      if(b.dataset.a==='edit'){editingId=n.id;titleI.value=n.title;bodyI.value=n.body;saveBtn.textContent='[↻] UPDATE NOTE';titleI.focus();window.scrollTo({top:form.offsetTop-80,behavior:'smooth'});}
-      renderNotes();
-    });
-    list.appendChild(d);
-  });
-}
-function escapeHtml(s){return (s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-form.onsubmit=e=>{
-  e.preventDefault();
-  if(!getSession()){authOverlay.classList.add('open');return;}
-  const t=titleI.value.trim(),b=bodyI.value.trim();
-  if(!t&&!b)return;
-  const all=getNotes();
-  if(editingId){const x=all.find(v=>v.id===editingId);x.title=t;x.body=b;editingId=null;saveBtn.textContent='[+] SAVE NOTE';}
-  else all.push({id:Date.now(),title:t,body:b,ts:Date.now(),pinned:false});
-  setNotes(all);titleI.value='';bodyI.value='';renderNotes();
-};
-document.getElementById('searchBox').oninput=renderNotes;
-document.getElementById('exportBtn').onclick=()=>{
-  const blob=new Blob([JSON.stringify(getNotes(),null,2)],{type:'application/json'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='synapse-notes.json';a.click();
-};
-document.getElementById('wipeBtn').onclick=()=>{
-  if(confirm('WIPE ENTIRE VAULT? this cannot be undone.')){setNotes([]);renderNotes();}
-};
-renderNotes();
-
-// ---------- per-user vault ----------
-function migrateNotes(email){
-  try{
-    const legacy=localStorage.getItem('synapse_notes_v1');
-    const mine=localStorage.getItem(notesKey(email));
-    if(legacy&&!mine){localStorage.setItem(notesKey(email),legacy);localStorage.removeItem('synapse_notes_v1');}
-  }catch(e){}
-}
-function updateVault(){
-  const s=getSession();
-  document.getElementById('notes').classList.toggle('is-locked',!s);
-  editingId=null;
-  if(s){migrateNotes(s);renderNotes();}
-  else{list.innerHTML='';count.textContent='> vault locked — sign in to unlock';}
-}
-document.getElementById('vaultSignIn').onclick=()=>authOverlay.classList.add('open');
 
 // ---------- clock ----------
 setInterval(()=>{document.getElementById('clock').textContent=new Date().toLocaleTimeString('en-GB');},1000);
 
-// ---------- init ----------
-renderAuth();
-renderArsenal();
-updateVault();
+// ---------- session + init ----------
+sb.auth.onAuthStateChange(async (event,session)=>{
+  currentUser=session?session.user:null;
+  await refreshAdminFlag();
+  if(currentUser)await migrateLegacy();
+  renderAuth();
+  await loadNotes();
+});
+
+(async function init(){
+  // password-recovery links land here: show the set-password form
+  const hash=location.hash||'';
+  if(hash.indexOf('type=recovery')!==-1||hash.indexOf('type=invite')!==-1){
+    setAuthMode('reset');
+    authOverlay.classList.add('open');
+  }
+  await loadTools(); // public AI grid, no sign-in needed
+  const {data}=await sb.auth.getSession();
+  currentUser=data.session?data.session.user:null;
+  await refreshAdminFlag();
+  if(currentUser)await migrateLegacy();
+  renderAuth();
+  await loadNotes();
+})();
 </script>
 </body>
 </html>
