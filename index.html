@@ -187,7 +187,7 @@ body.is-admin .tool-wrap.custom .del-tool{display:block}
 .tool-wrap .edit-tool{position:absolute;bottom:8px;left:10px;z-index:3;display:none;
 background:rgba(0,0,0,.75);border:1px solid #00ff41;color:#00ff41;
 width:22px;height:22px;font-size:12px;cursor:pointer;line-height:1}
-body.is-admin .tool-wrap.custom .edit-tool{display:block}
+body.is-admin .tool-wrap .edit-tool{display:block}
 /* in-page confirm modal (replaces native confirm dialogs) */
 #confirmOverlay .modal{width:min(400px,94vw)}
 #confirmMsg{font-size:13px;line-height:1.8;margin-bottom:20px;color:var(--amber)}
@@ -445,10 +445,11 @@ function renderArsenal(){
     el.innerHTML='<span class="scan"></span><span class="ai-key">['+key+']</span>'+
       '<span class="ai-name">'+escapeHtml(a.name)+'</span><span class="ai-tag">'+escapeHtml(a.tagline)+'</span>';
     wrap.appendChild(el);
+    const eb=document.createElement('button');eb.className='edit-tool';eb.dataset.id=a.id;eb.textContent='\u270E';eb.title='edit tool';
+    wrap.appendChild(eb);
     if(custom){
-      const eb=document.createElement('button');eb.className='edit-tool';eb.dataset.id=a.id;eb.textContent='\u270E';eb.title='edit tool';
       const db=document.createElement('button');db.className='del-tool';db.dataset.id=a.id;db.textContent='\u00D7';db.title='delete tool';
-      wrap.appendChild(eb);wrap.appendChild(db);
+      wrap.appendChild(db);
     }
     grid.appendChild(wrap);
   });
