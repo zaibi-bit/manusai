@@ -112,6 +112,14 @@ main{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:30px 20p
 .ai-btn.amber{border-color:var(--amber);color:var(--amber)}
 .ai-btn.amber .ai-tag,.ai-btn.amber .ai-key{color:rgba(255,176,0,.6)}
 .ai-btn.amber:hover{box-shadow:0 0 26px rgba(255,176,0,.5);border-color:var(--amber)}
+/* category filter chips */
+.cat-bar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:22px}
+.cat-chip{background:transparent;border:1px solid var(--green-dim);color:var(--green-dim);
+  font-family:inherit;font-size:11px;letter-spacing:2px;padding:8px 16px;cursor:pointer;transition:.2s}
+.cat-chip:hover{border-color:var(--green);color:var(--green)}
+.cat-chip.active{background:var(--green);border-color:var(--green);color:#000;font-weight:800;
+  box-shadow:0 0 14px rgba(0,255,65,.5)}
+.cat-chip .n{opacity:.65;font-weight:400}
 /* notes */
 .notes-panel{border:1px solid var(--green-dim);background:var(--panel);padding:22px;
   box-shadow:0 0 24px rgba(0,255,65,.1)}
@@ -233,6 +241,7 @@ body.is-admin .tool-wrap .edit-tool{display:block}
     <h2 class="sec-title"><span class="sec-num">[01]</span> AI ARSENAL</h2>
     <button class="hack-btn" id="addToolBtn">[+] ADD TOOL</button>
   </div>
+  <div class="cat-bar" id="catBar"></div>
   <div class="ai-grid" id="aiGrid"></div>
 
   <h2 class="sec-title"><span class="sec-num">[02]</span> SECURE NOTES VAULT</h2>
@@ -295,6 +304,13 @@ body.is-admin .tool-wrap .edit-tool{display:block}
       <option value="">accent: matrix green</option>
       <option value="neon">accent: cyan</option>
       <option value="amber">accent: amber</option>
+    </select>
+    <select id="toolCat">
+      <option value="assistants">category: chat assistants</option>
+      <option value="search">category: search &amp; research</option>
+      <option value="code">category: code</option>
+      <option value="hubs">category: model hubs</option>
+      <option value="other">category: other</option>
     </select>
     <div class="form-err" id="toolErr"></div>
     <div class="btn-row">
@@ -390,19 +406,31 @@ const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
 
 // Local fallback copy of the 12 builtin tools (used only if the DB read fails)
 const AIS_FALLBACK=[
-  {name:'ChatGPT',tagline:'openai · general purpose',url:'https://chatgpt.com',color:'glitch-btn',sort_order:1,builtin:true,is_global:true},
-  {name:'Claude',tagline:'anthropic · deep reasoning',url:'https://claude.ai',color:'trace',sort_order:2,builtin:true,is_global:true},
-  {name:'Gemini',tagline:'google · multimodal',url:'https://gemini.google.com',color:'neon glitch-btn',sort_order:3,builtin:true,is_global:true},
-  {name:'Grok',tagline:'xai · real-time edge',url:'https://grok.com',color:'flicker',sort_order:4,builtin:true,is_global:true},
-  {name:'Perplexity',tagline:'answer engine · cited',url:'https://www.perplexity.ai',color:'trace',sort_order:5,builtin:true,is_global:true},
-  {name:'Copilot',tagline:'microsoft · everyday ai',url:'https://copilot.microsoft.com',color:'neon flicker',sort_order:6,builtin:true,is_global:true},
-  {name:'Meta AI',tagline:'meta · social brain',url:'https://www.meta.ai',color:'glitch-btn',sort_order:7,builtin:true,is_global:true},
-  {name:'DeepSeek',tagline:'open weights · coder',url:'https://chat.deepseek.com',color:'trace flicker',sort_order:8,builtin:true,is_global:true},
-  {name:'Le Chat',tagline:'mistral · european ai',url:'https://chat.mistral.ai',color:'amber glitch-btn',sort_order:9,builtin:true,is_global:true},
-  {name:'Qwen',tagline:'alibaba · multilingual',url:'https://chat.qwen.ai',color:'amber trace',sort_order:10,builtin:true,is_global:true},
-  {name:'Poe',tagline:'multi-model hub',url:'https://poe.com',color:'neon trace',sort_order:11,builtin:true,is_global:true},
-  {name:'HuggingChat',tagline:'open-source playground',url:'https://huggingface.co/chat',color:'flicker trace',sort_order:12,builtin:true,is_global:true},
+  {name:'ChatGPT',tagline:'openai · general purpose',url:'https://chatgpt.com',color:'glitch-btn',category:'assistants',sort_order:1,builtin:true,is_global:true},
+  {name:'Claude',tagline:'anthropic · deep reasoning',url:'https://claude.ai',color:'trace',category:'assistants',sort_order:2,builtin:true,is_global:true},
+  {name:'Gemini',tagline:'google · multimodal',url:'https://gemini.google.com',color:'neon glitch-btn',category:'assistants',sort_order:3,builtin:true,is_global:true},
+  {name:'Grok',tagline:'xai · real-time edge',url:'https://grok.com',color:'flicker',category:'assistants',sort_order:4,builtin:true,is_global:true},
+  {name:'Perplexity',tagline:'answer engine · cited',url:'https://www.perplexity.ai',color:'trace',category:'search',sort_order:5,builtin:true,is_global:true},
+  {name:'Copilot',tagline:'microsoft · everyday ai',url:'https://copilot.microsoft.com',color:'neon flicker',category:'assistants',sort_order:6,builtin:true,is_global:true},
+  {name:'Meta AI',tagline:'meta · social brain',url:'https://www.meta.ai',color:'glitch-btn',category:'assistants',sort_order:7,builtin:true,is_global:true},
+  {name:'DeepSeek',tagline:'open weights · coder',url:'https://chat.deepseek.com',color:'trace flicker',category:'code',sort_order:8,builtin:true,is_global:true},
+  {name:'Le Chat',tagline:'mistral · european ai',url:'https://chat.mistral.ai',color:'amber glitch-btn',category:'assistants',sort_order:9,builtin:true,is_global:true},
+  {name:'Qwen',tagline:'alibaba · multilingual',url:'https://chat.qwen.ai',color:'amber trace',category:'assistants',sort_order:10,builtin:true,is_global:true},
+  {name:'Poe',tagline:'multi-model hub',url:'https://poe.com',color:'neon trace',category:'hubs',sort_order:11,builtin:true,is_global:true},
+  {name:'HuggingChat',tagline:'open-source playground',url:'https://huggingface.co/chat',color:'flicker trace',category:'hubs',sort_order:12,builtin:true,is_global:true},
 ];
+
+// tool categories (fixed set; DB rows carry a matching category id)
+const CATS=[
+  {id:'assistants',label:'CHAT ASSISTANTS'},
+  {id:'search',label:'SEARCH & RESEARCH'},
+  {id:'code',label:'CODE'},
+  {id:'hubs',label:'MODEL HUBS'},
+  {id:'other',label:'OTHER'},
+];
+const catOf=t=>(t&&t.category)||'other';
+const catLabel=id=>(CATS.find(c=>c.id===id)||{label:id.toUpperCase()}).label;
+let activeCat='all';
 
 let currentUser=null;   // supabase auth user
 let isAdminFlag=false;  // from public.profiles.is_admin
@@ -432,9 +460,27 @@ async function loadTools(){
   renderArsenal();
 }
 
+function renderCatBar(){
+  const bar=document.getElementById('catBar');
+  bar.innerHTML='';
+  const counts={};
+  tools.forEach(t=>{const c=catOf(t);counts[c]=(counts[c]||0)+1;});
+  const mk=(id,label,n)=>{
+    const b=document.createElement('button');
+    b.className='cat-chip'+(activeCat===id?' active':'');
+    b.innerHTML=escapeHtml(label)+(n!=null?' <span class="n">['+n+']</span>':'');
+    b.onclick=()=>{activeCat=id;renderArsenal();};
+    bar.appendChild(b);
+  };
+  mk('all','ALL',tools.length);
+  CATS.forEach(c=>{if(counts[c.id])mk(c.id,c.label,counts[c.id]);});
+}
+
 function renderArsenal(){
+  renderCatBar();
   grid.innerHTML='';
-  tools.forEach((a,i)=>{
+  const shown=tools.filter(t=>activeCat==='all'||catOf(t)===activeCat);
+  shown.forEach((a,i)=>{
     const wrap=document.createElement('div');
     const custom=!a.builtin;
     wrap.className='tool-wrap'+(custom?' custom':'');
@@ -465,6 +511,7 @@ function renderArsenal(){
     document.getElementById('toolUrl').value=t.url||'';
     document.getElementById('toolTag').value=t.tagline||'';
     document.getElementById('toolColor').value=t.color||'';
+    document.getElementById('toolCat').value=catOf(t);
     document.getElementById('toolErr').textContent='';
     toolOverlay.classList.add('open');
   });
@@ -602,7 +649,7 @@ async function migrateLegacy(){
     if(ctools.length&&isAdminFlag){
       const maxSort=tools.reduce((m,t)=>Math.max(m,t.sort_order||0),0);
       const rows=ctools.map((t,i)=>({name:t.n,url:t.u,tagline:t.t||'custom tool',
-        color:t.c||'',sort_order:maxSort+1+i,builtin:false,is_global:true}));
+        color:t.c||'',category:'other',sort_order:maxSort+1+i,builtin:false,is_global:true}));
       await sb.from('tools').insert(rows);
     }
   }catch(e){console.warn('legacy migration failed',e);}
@@ -714,6 +761,7 @@ function resetToolForm(){
   document.getElementById('toolSave').innerHTML='[+] DEPLOY TOOL';
   ['toolName','toolUrl','toolTag'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('toolColor').value='';
+  document.getElementById('toolCat').value='assistants';
   document.getElementById('toolErr').textContent='';
 }
 document.getElementById('toolClose').onclick=()=>{resetToolForm();toolOverlay.classList.remove('open');};
@@ -725,15 +773,16 @@ document.getElementById('toolSave').onclick=async ()=>{
   const u=document.getElementById('toolUrl').value.trim();
   const t=document.getElementById('toolTag').value.trim()||'custom tool';
   const c=document.getElementById('toolColor').value;
+  const cat=document.getElementById('toolCat').value||'other';
   const err=document.getElementById('toolErr');
   if(!n){err.textContent='name your tool';return;}
   if(!/^https?:\/\/.+\..+/.test(u)){err.textContent='enter a valid url (https://...)';return;}
   if(editingToolId){
-    const {error}=await sb.from('tools').update({name:n,url:u,tagline:t,color:c}).eq('id',editingToolId);
+    const {error}=await sb.from('tools').update({name:n,url:u,tagline:t,color:c,category:cat}).eq('id',editingToolId);
     if(error){err.textContent=error.message;return;}
   }else{
     const maxSort=tools.reduce((m,x)=>Math.max(m,x.sort_order||0),0);
-    const {error}=await sb.from('tools').insert({name:n,url:u,tagline:t,color:c,sort_order:maxSort+1,builtin:false,is_global:true});
+    const {error}=await sb.from('tools').insert({name:n,url:u,tagline:t,color:c,category:cat,sort_order:maxSort+1,builtin:false,is_global:true});
     if(error){err.textContent=error.message;return;}
   }
   toolOverlay.classList.remove('open');resetToolForm();await loadTools();
