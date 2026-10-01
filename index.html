@@ -178,14 +178,19 @@ footer .heart{color:var(--red)}
 .sec-head-row .sec-title{margin:0;flex:1;min-width:200px}
 #addToolBtn{display:none}
 body.is-admin #addToolBtn{display:inline-block}
-.ai-btn .del-tool{position:absolute;bottom:8px;right:10px;z-index:3;display:none;
-  background:rgba(0,0,0,.6);border:1px solid var(--red);color:var(--red);font-family:inherit;
+.tool-wrap{position:relative}
+.tool-wrap .ai-btn{height:100%}
+.tool-wrap .del-tool{position:absolute;bottom:8px;right:10px;z-index:3;display:none;
+  background:rgba(0,0,0,.75);border:1px solid var(--red);color:var(--red);font-family:inherit;
   font-size:10px;padding:3px 8px;cursor:pointer}
-body.is-admin .ai-btn.custom .del-tool{display:block}
-.ai-btn .edit-tool{position:absolute;bottom:8px;left:10px;z-index:3;display:none;
-background:rgba(0,0,0,.6);border:1px solid #00ff41;color:#00ff41;
+body.is-admin .tool-wrap.custom .del-tool{display:block}
+.tool-wrap .edit-tool{position:absolute;bottom:8px;left:10px;z-index:3;display:none;
+background:rgba(0,0,0,.75);border:1px solid #00ff41;color:#00ff41;
 width:22px;height:22px;font-size:12px;cursor:pointer;line-height:1}
-body.is-admin .ai-btn.custom .edit-tool{display:block}
+body.is-admin .tool-wrap.custom .edit-tool{display:block}
+/* in-page confirm modal (replaces native confirm dialogs) */
+#confirmOverlay .modal{width:min(400px,94vw)}
+#confirmMsg{font-size:13px;line-height:1.8;margin-bottom:20px;color:var(--amber)}
 /* per-user vault lock */
 #notes.is-locked #noteForm,#notes.is-locked .note-list,#notes.is-locked .notes-toolbar{display:none}
 .vault-locked{display:none;text-align:center;padding:54px 20px;border:1px dashed var(--green-dim);margin-bottom:26px}
@@ -295,6 +300,17 @@ body.is-admin .ai-btn.custom .edit-tool{display:block}
     <div class="btn-row">
       <button class="hack-btn" id="toolSave">[+] DEPLOY TOOL</button>
       <button class="hack-btn danger" id="toolClose">[&times;] CLOSE</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="confirmOverlay">
+  <div class="modal">
+    <h3>&gt; CONFIRM</h3>
+    <p class="sub" id="confirmMsg"></p>
+    <div class="btn-row">
+      <button class="hack-btn danger" id="confirmYes">[&#10003;] CONFIRM</button>
+      <button class="hack-btn" id="confirmNo">[&times;] CANCEL</button>
     </div>
   </div>
 </div>
@@ -419,15 +435,22 @@ async function loadTools(){
 function renderArsenal(){
   grid.innerHTML='';
   tools.forEach((a,i)=>{
-    const el=document.createElement('a');
+    const wrap=document.createElement('div');
     const custom=!a.builtin;
-    el.className='ai-btn '+(a.color||'')+(custom?' custom':'');
+    wrap.className='tool-wrap'+(custom?' custom':'');
+    const el=document.createElement('a');
+    el.className='ai-btn '+(a.color||'');
     el.href=a.url;el.target='_blank';el.rel='noopener';
     const key=String(i+1).padStart(2,'0');
     el.innerHTML='<span class="scan"></span><span class="ai-key">['+key+']</span>'+
-      '<span class="ai-name">'+escapeHtml(a.name)+'</span><span class="ai-tag">'+escapeHtml(a.tagline)+'</span>'+
-      (custom?'<button class="edit-tool" data-id="'+a.id+'">✎</button><button class="del-tool" data-id="'+a.id+'">×</button>':'');
-    grid.appendChild(el);
+      '<span class="ai-name">'+escapeHtml(a.name)+'</span><span class="ai-tag">'+escapeHtml(a.tagline)+'</span>';
+    wrap.appendChild(el);
+    if(custom){
+      const eb=document.createElement('button');eb.className='edit-tool';eb.dataset.id=a.id;eb.textContent='\u270E';eb.title='edit tool';
+      const db=document.createElement('button');db.className='del-tool';db.dataset.id=a.id;db.textContent='\u00D7';db.title='delete tool';
+      wrap.appendChild(eb);wrap.appendChild(db);
+    }
+    grid.appendChild(wrap);
   });
   grid.querySelectorAll('.edit-tool').forEach(b=>b.onclick=e=>{
     e.preventDefault();e.stopPropagation();
@@ -436,7 +459,7 @@ function renderArsenal(){
     if(!t)return;
     editingToolId=t.id;
     document.getElementById('toolModalTitle').innerHTML='&gt; EDIT AI TOOL';
-    document.getElementById('toolSave').innerHTML='[↻] UPDATE TOOL';
+    document.getElementById('toolSave').innerHTML='[\u21BB] UPDATE TOOL';
     document.getElementById('toolName').value=t.name||'';
     document.getElementById('toolUrl').value=t.url||'';
     document.getElementById('toolTag').value=t.tagline||'';
@@ -447,10 +470,23 @@ function renderArsenal(){
   grid.querySelectorAll('.del-tool').forEach(b=>b.onclick=async e=>{
     e.preventDefault();e.stopPropagation();
     if(!isAdminFlag)return;
-    if(!confirm('remove this tool from your arsenal?'))return;
+    if(!await askConfirm('remove this tool from your arsenal?'))return;
     const {error}=await sb.from('tools').delete().eq('id',b.dataset.id);
     if(error){alert('delete failed: '+error.message);return;}
     await loadTools();
+  });
+}
+
+// in-page confirm dialog (native confirm() is unreliable in embedded/automated browsers)
+function askConfirm(msg){
+  return new Promise(res=>{
+    const ov=document.getElementById('confirmOverlay');
+    document.getElementById('confirmMsg').textContent=msg;
+    ov.classList.add('open');
+    const yes=document.getElementById('confirmYes'),no=document.getElementById('confirmNo');
+    const done=v=>{ov.classList.remove('open');yes.onclick=no.onclick=null;res(v);};
+    yes.onclick=()=>done(true);
+    no.onclick=()=>done(false);
   });
 }
 
@@ -614,7 +650,7 @@ function renderNotes(){
     d.querySelectorAll('.mini-btn').forEach(b=>b.onclick=async ()=>{
       const act=b.dataset.a;
       if(act==='del'){
-        if(!confirm('permanently delete this note?'))return;
+        if(!await askConfirm('permanently delete this note?'))return;
         const {error}=await sb.from('notes').delete().eq('id',n.id);
         if(error){alert('delete failed: '+error.message);return;}
         await loadNotes();
@@ -653,7 +689,7 @@ document.getElementById('exportBtn').onclick=()=>{
 };
 document.getElementById('wipeBtn').onclick=async ()=>{
   if(!currentUser)return;
-  if(!confirm('WIPE ENTIRE VAULT? this cannot be undone.'))return;
+  if(!await askConfirm('WIPE ENTIRE VAULT? this cannot be undone.'))return;
   const {error}=await sb.from('notes').delete().eq('user_id',currentUser.id);
   if(error){alert('wipe failed: '+error.message);return;}
   await loadNotes();
