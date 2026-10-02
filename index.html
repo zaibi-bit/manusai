@@ -308,7 +308,11 @@ body.is-admin .tool-wrap .edit-tool{display:block}
     <select id="toolCat">
       <option value="assistants">category: chat assistants</option>
       <option value="search">category: search &amp; research</option>
+      <option value="image">category: image ai</option>
+      <option value="video">category: video ai</option>
+      <option value="audio">category: voice &amp; music</option>
       <option value="code">category: code</option>
+      <option value="productivity">category: productivity</option>
       <option value="hubs">category: model hubs</option>
       <option value="other">category: other</option>
     </select>
@@ -418,13 +422,27 @@ const AIS_FALLBACK=[
   {name:'Qwen',tagline:'alibaba · multilingual',url:'https://chat.qwen.ai',color:'amber trace',category:'assistants',sort_order:10,builtin:true,is_global:true},
   {name:'Poe',tagline:'multi-model hub',url:'https://poe.com',color:'neon trace',category:'hubs',sort_order:11,builtin:true,is_global:true},
   {name:'HuggingChat',tagline:'open-source playground',url:'https://huggingface.co/chat',color:'flicker trace',category:'hubs',sort_order:12,builtin:true,is_global:true},
+  {name:'Midjourney',tagline:'ai art generator',url:'https://www.midjourney.com',color:'neon glitch-btn',category:'image',sort_order:13,builtin:false,is_global:true},
+  {name:'Ideogram',tagline:'text-perfect image ai',url:'https://ideogram.ai',color:'trace',category:'image',sort_order:14,builtin:false,is_global:true},
+  {name:'Leonardo AI',tagline:'game asset art ai',url:'https://leonardo.ai',color:'amber trace',category:'image',sort_order:15,builtin:false,is_global:true},
+  {name:'Runway',tagline:'ai video studio',url:'https://runwayml.com',color:'neon flicker',category:'video',sort_order:16,builtin:false,is_global:true},
+  {name:'Sora',tagline:'openai video model',url:'https://sora.chatgpt.com',color:'glitch-btn',category:'video',sort_order:17,builtin:false,is_global:true},
+  {name:'ElevenLabs',tagline:'lifelike voice ai',url:'https://elevenlabs.io',color:'neon trace',category:'audio',sort_order:18,builtin:false,is_global:true},
+  {name:'Suno',tagline:'ai music maker',url:'https://suno.com',color:'amber glitch-btn',category:'audio',sort_order:19,builtin:false,is_global:true},
+  {name:'Cursor',tagline:'ai code editor',url:'https://cursor.com',color:'trace flicker',category:'code',sort_order:20,builtin:false,is_global:true},
+  {name:'Grammarly',tagline:'ai writing coach',url:'https://www.grammarly.com',color:'flicker',category:'productivity',sort_order:21,builtin:false,is_global:true},
+  {name:'Arena',tagline:'model battleground',url:'https://arena.ai',color:'amber flicker',category:'hubs',sort_order:22,builtin:false,is_global:true},
 ];
 
 // tool categories (fixed set; DB rows carry a matching category id)
 const CATS=[
   {id:'assistants',label:'CHAT ASSISTANTS'},
   {id:'search',label:'SEARCH & RESEARCH'},
+  {id:'image',label:'IMAGE AI'},
+  {id:'video',label:'VIDEO AI'},
+  {id:'audio',label:'VOICE & MUSIC'},
   {id:'code',label:'CODE'},
+  {id:'productivity',label:'PRODUCTIVITY'},
   {id:'hubs',label:'MODEL HUBS'},
   {id:'other',label:'OTHER'},
 ];
